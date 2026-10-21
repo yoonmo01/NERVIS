@@ -24,16 +24,24 @@
 - 데이터 사실·분석 기준은 `docs/DATA_OVERVIEW.md`, `docs/DATA_ANALYSIS_PLAN.md`, `docs/DATA_ANALYSIS_RESULTS.md`다.
 - 현재 제품 기획은 `docs/PROJECT_DIRECTION.md`, 구조·도구·데이터 규격은 `docs/SYSTEM_ARCHITECTURE.md`, 촬영·제출 시나리오는 `docs/VIDEO_SCENARIO.md`를 따른다. BAZE 연결은 `docs/BAZE_API_GUIDE.md`, Google 생성 소재는 `docs/GOOGLE_VIDEO_WORKFLOW.md`에 기록한다.
 - `docs/past/`는 구 기획 기록이다. 거기 적힌 기능·기술 스택·일정을 현재 확정 요구사항으로 승계하지 않는다.
-- 데이터 검사·탐색 분석과 앱용 통합 데이터 패키지 생성·검증을 마쳤다. 현재 패키지는 `data/processed/nervis_v1/`, 검증 기록은 `reports/data_preparation/validation.json`이다. 대화·화면·음성 앱은 아직 구현하지 않았다.
+- 데이터 검사·탐색 분석과 앱용 통합 데이터 패키지 생성·검증을 마쳤다. 현재 패키지는 `data/processed/nervis_v1/`, 검증 기록은 `reports/data_preparation/validation.json`이다. 첫 직접 조작 화면은 구현했고 자연어 대화·음성 앱은 아직 없다.
 - 앱용 가공 코드는 `scripts/prepare_app_data.py`, 합성 데이터 검사는 `tests/test_prepare_app_data.py`다. 기존 출력은 덮어쓰지 않으며 재검증은 `--verify-only`를 사용한다. 원본 해시 기준을 새로 생성하거나 분석 전체를 다시 실행하지 않는다.
 - 로컬 패키지 로더는 `backend/data.py`, 조회·비교·검색·이동 창·단면 함수는 `backend/analysis.py`다. 함수는 서버·모델 없이도 실행하며 입력을 검증하고 JSON 호환 결과를 반환한다. FastAPI 데이터·분석 연결은 구현했고 AI 도구 연결은 아직 없다.
 - 서버는 `backend/app.py`, 요청 모델은 `backend/schemas.py`, 실행은 `python -m backend`다. 기본 127.0.0.1:8000, Host는 localhost/127.0.0.1, CORS는 로컬 5173 포트만 허용한다. 패키지는 시작할 때 한 번 검증·로딩하고 등록된 단면만 제공한다. 원본·임의 파일 정적 마운트·업로드·세션·AI·음성 API는 없다.
 - 서버 합성 검사는 `tests/test_api.py`다. 실제 HTTP 확인 기록은 `reports/backend/http_validation.json`이며 기존 검증 기록을 덮어쓰지 않는다. Windows 샌드박스에서는 asyncio 내부 socketpair가 멈출 수 있어, 로컬 통신이 허용된 환경에서 테스트·서버를 실행한다.
+- 프런트는 `frontend/`의 React·TypeScript·Vite와 Three.js·React Three Fiber다. `docs/FRONTEND_DESIGN.md`를 따른다. 중앙 타이틀→왼쪽 위 이동→푸른 다층 코어와 홈/분석 전환, 실제 ROI·Axial/Coronal·대응 파형 비교를 구현했다. 최신 12절에는 로컬 관계 검색·단면 선택, 단면 기반 입자 무대·ROI 확대·창별 상관·샘플 재생을 추가했다. 파형은 SVG이며 ECharts·실제 AI/마이크는 미구현이다. 코어는 추상 인터페이스이고 뇌나 개인의 의식을 복원한 것이 아니다.
+- `frontend/src/audio.ts`는 로컬 합성음 미리보기다. 실제 AnalyserNode 음량에 반응하지만 AI·TTS·마이크로 표시하지 않는다. 시작·중지·자동 종료·화면 전환에 맞춰 자원을 해제한다.
+- Vite는127.0.0.1:5173, `/api`만127.0.0.1:8000으로 프록시하며 루트 `.env`를 읽지 않는다. 허용 파일 범위는frontend뿐이다. 실제 데이터·키·보고서·스크린샷을frontend 공개 자산이나 fixture에 복사하지 않는다. `node_modules/`·`dist/`는Git 제외다.
+- 프런트 검사는 `npm.cmd test`, 타입·빌드는 `npm.cmd run build`다. 실제 UI·로컬 HTTP·보존 확인 기록은 `reports/frontend/`에 둔다. 1080p30fps·다른 브라우저/모바일·OS 움직임 축소 적용을 실제 검증 전 달성으로 기록하지 않는다.
+- 다음 화면 합의는 `docs/FRONTEND_DESIGN.md` 8절이다. 오늘 브리핑(춘천 날씨·등록한 수업·할 일)→대화로 뇌 분석 시작→자동 결과 전개→완료 후 상세 선택이다. 요청은 도구·초기 전환·응답 음성까지 끝난 후 다음 요청을 받으며 처리 중 끼어들기·추가 요청 대기열은 넣지 않는다. 명시된 미리보기 안의 로컬 자동 분석은 구현했고 전체 AI 요청 제어·브리핑·실제 AI/음성은 아직 미구현이다.
+- 코어·공통 화면 구현 이력은 같은 문서9절, UI 피드백 이력은10절, 높이 대응·입력 전환·직접 변경 메뉴와 크롬 검증은11절, 최신 공통 입력·분석 무대는12절이다. 코어의 발광 핵·곡면 패널·빠른 회전·로컬 음량 반응, 커진 좌상단 코어, 홈의 펼친 입력창·분석의 T/마이크, 날씨·수업·할 일 카드 구조를 구현했으나 후속 피드백에 따라 미연결 초기 카드는 제거했다. 실제 브리핑 후 카드 표시는 아직 없다. `Interface.tsx`·`interface.css`가 공통 화면이다. 전송은 비활성이고 텍스트/음성 모드가 같은 편집 가능한 입력칸을 공유하며 초안은 현재 탭 메모리에만 둔다. 음성 모드는 STT 연결 전·마이크 꺼짐을 표시한다. 날씨·개인 수업·과제 값은 연결 전 생성하지 않는다. 실계정 연결 전의 분석 진입은 명시된 화면 미리보기다. 초기 검사9개·독립 정적 검토와 브라우저 확인 기록은 `reports/frontend-v2/`다. 이전 UI의 크롬 검증은 `reports/frontend-responsive/`, 최신 무대·입력 검증은 `reports/analysis-stage/`에 둔다. STT는 세션 활성 후 요청/응답 중 중지·완료 후 재개하는 설계이고 실제 마이크/STT는 계속 미연결이다.
 - 로컬 함수의 합성 검사는 `tests/test_analysis.py`, 검증 스크립트 검사는 `tests/test_verify_local_analysis.py`다. 실제 자료 대조는 `scripts/verify_local_analysis.py`, 기록은 `reports/local_analysis/validation.json`이다. 기존 기록을 덮어쓰지 않고 기존 탐색 분석 CSV를 읽어서 대조한다.
 - `.env.example`은 빈 키와 선택 설정만 담는다. 실제 `.env`는 Git에서 제외하며, 앱용 가공 코드는 키나 환경 파일을 읽지 않는다. 환경 파일 형식 확인과 실제 API 인증 성공은 구분한다.
 - 사용자는 음성 호출·맥락을 잇는 실제 AI 도구 호출·뇌 데이터 시각화 시스템을 녹화·편집해 MP4로 제출하는 방향을 선택했다. 분석용 정규화·창 길이·지표와 작품의 표현 규칙을 구분한다.
 - 현재 기획의 기술은 채택 계획이다. 실제 키·계정 모델·한국어 음성·렌더 성능을 검증한 것으로 취급하지 않는다. BAZE 앱 연결과 개발용 코딩 에이전트 설정을 구분하고, 문서 작성만으로 전역 설정이나 현재 세션의 모델 제공자를 변경하지 않는다.
 - 원본·상세 파생 결과의 외부 전송 제한은 LLM 입력뿐 아니라 STT/TTS 문장·영상 생성 입력·로그에도 적용한다. 허용 범위 미확인 동안 분석 수치·상세 결과는 로컬에서 표시·음성 처리하고, 외부에는 명령·최소 상태만 보낸다.
+
+- Blender 후속 작업은 `docs/BLENDER_HANDOFF.md`와 프런트 설계13절을 따른다. 별도 세션은 일반 모델·GLB 준비에 집중하고, 기존 웹 연동은 모델을 받은 뒤 진행한다. 중앙 일반 뇌 모형 교체·좌/우 패널 고정은 아직 미구현이다. 공개 모델의 영역을 제공 데이터의 정확한 개인별 경계로 표현하지 않는다.
 
 ## API 테스트와 크레딧 사용은 사전 승인을 받는다
 

@@ -1,0 +1,53 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import { preferredSlice, sliceCloud, advanceSample, signalStrength } from './analysisModel.ts'
+import { loadStage } from './stageData.ts'
+
+test('slice choice prioritizes visibility of both ROIs and has an absent-region fallback', () => {
+  const records = [
+    { orientation: 'Axial' as const, slice_index: 1, pixel_counts: { '1': 100, '11': 0 } },
+    { orientation: 'Axial' as const, slice_index: 2, pixel_counts: { '1': 20, '11': 25 } },
+    { orientation: 'Axial' as const, slice_index: 3, pixel_counts: { '1': 18, '11': 100 } },
+  ]
+  assert.equal(preferredSlice(records, 1, 11)?.slice_index, 2)
+  assert.equal(preferredSlice(records.slice(0, 1), 1, 11)?.slice_index, 1)
+  assert.equal(preferredSlice([], 1, 11), null)
+  assert.deepEqual(records.map(r => r.slice_index), [1, 2, 3])
+})
+
+test('spatial points preserve image left/right and mask IDs; bounds use all pixels', () => {
+  const t1 = new Uint8ClampedArray([100, 100, 100, 255, 200, 200, 200, 255, 0, 0, 0, 255, 90, 90, 90, 255])
+  const mask = new Uint8ClampedArray([1, 1, 1, 255, 11, 11, 11, 255, 0, 0, 0, 255, 11, 11, 11, 255])
+  const before = [...mask]
+  const cloud = sliceCloud(t1, mask, 2, 2, 1, 11, 1)
+  assert.deepEqual([...cloud.regionA], [-2, 2, 0])
+  assert.deepEqual([...cloud.regionB], [2, 2, 0, 2, -2, 0])
+  assert.equal(cloud.tissue.length, 9)
+  assert.deepEqual(cloud.boundsB, { x: 1, y: 0, width: 1, height: 2 })
+  assert.deepEqual(cloud.centerB, [2, 0, 0])
+  assert.deepEqual([...mask], before)
+  assert.equal(sliceCloud(t1, mask, 2, 2, 2, 12, 1).boundsA, null)
+  assert.throws(() => sliceCloud(t1, mask.slice(4), 2, 2, 1, 11, 1))
+})
+
+test('sample playback loops inside inclusive selected bounds, never treating samples as seconds', () => {
+  assert.equal(advanceSample(200, 1, 200), 1)
+  assert.equal(advanceSample(15, 10, 20, 10), 14)
+  assert.equal(advanceSample(1, 50, 99), 50)
+  assert.equal(advanceSample(50, 50, 50), 50)
+  assert.throws(() => advanceSample(1, 20, 10))
+  assert.equal(signalStrength(Number.NaN), 0)
+  assert.equal(signalStrength(0), 0)
+  assert.equal(signalStrength(-1.5), 0.5)
+  assert.equal(signalStrength(100), 1)
+})
+
+test('stage loading rejects HTTP failures and mixed data versions before image processing', async () => {
+  const original = globalThis.fetch
+  try {
+    globalThis.fetch = async () => new Response('{}', { status: 503 })
+    await assert.rejects(loadStage([], 'expected', null, new AbortController().signal, () => {}), /503/)
+    globalThis.fetch = async () => new Response(JSON.stringify({ dataset_version: 'other', pairs: [] }), { status: 200 })
+    await assert.rejects(loadStage([], 'expected', null, new AbortController().signal, () => {}), /버전/)
+  } finally { globalThis.fetch = original }
+})
