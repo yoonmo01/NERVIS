@@ -1,1 +1,24 @@
-/뇌영상 시계열 예시 데이터
+# Supplied originals: read-only, never redistribute from this repository.
+/뇌영상 시계열 예시 데이터/
+
+# Local work and data-derived outputs (some can reconstruct the input).
+/tmp
+/reports
+/data/processed/
+
+# Supplied reference PDF: redistribution terms have not been confirmed.
+/docs/AI Brain Art Challenge - 안소라.pdf
+
+# Local data documentation: excluded at the user's request.
+/docs/DATA_*.md
+/docs/past/NERVIS_DATA_FEASIBILITY.md
+
+# Local credentials and Python-generated files.
+.env
+.env.*
+!.env.example
+/.aws/
+.venv/
+venv/
+__pycache__/
+*.pyc
