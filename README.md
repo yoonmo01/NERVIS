@@ -4,7 +4,7 @@
 
 현재 기획은 React·Three.js 화면 + Python 분석 서버 + BAZE/HAI GPT 도구 호출이다. 실시간 받아쓰기·Gemini TTS와 Google 생성 영상도 BAZE에서 가능한지 먼저 확인한다. Google 생성 영상은 선택적인 도입·전환 소재이며 뇌 영역·파형·수치는 실제 데이터에서 직접 그린다.
 
-기획 문서와 환경 변수 예시를 작성했고 앱용 데이터 패키지를 생성·검증했다. 대화·화면·음성 앱, 실계정 API 연결과 본편은 아직 만들지 않았다. 전체 기준은 [프로젝트 기획](docs/PROJECT_DIRECTION.md)에 있다.
+기획 문서·환경 변수 예시·앱용 데이터 패키지에 이어 로컬 Python 분석 함수를 구현하고 기존 분석 결과와 대조했다. FastAPI 서버, 대화·화면·음성 앱, 실계정 API 연결과 본편은 아직 만들지 않았다. 전체 기준은 [프로젝트 기획](docs/PROJECT_DIRECTION.md)에 있다.
 
 ## 원본 보호
 
@@ -19,6 +19,7 @@
 | `AGENTS.md`, `.gitignore`, `README.md` | 포함 | 작업 규칙·저장소 안내 |
 | `scripts/analyze_data.py` | 포함 | 실제 데이터는 내장하지 않은 재현 가능한 분석 코드. 로컬 데이터 별도 필요 |
 | `scripts/prepare_app_data.py`, `tests/test_prepare_app_data.py`, `.env.example` | 포함 | 오프라인 가공·검증 코드, 합성 자료 테스트, 실제 키가 없는 설정 예시 |
+| `backend/`, `scripts/verify_local_analysis.py`, 로컬 분석·검증 테스트 | 포함 | 실제 데이터·키를 내장하지 않은 계산 코드와 합성 자료 검사 |
 | 현재 기획·구조·시나리오·API 가이드, `docs/past/NERVIS_PROJECT_PLAN.md` | 포함 | 개발 계획·공식 API 사용법. `past`는 구 기획임을 유지 |
 | `docs/DATA_ANALYSIS_PLAN.md` | 제외 | 사용자가 데이터 관련 Markdown 전체를 커밋 대상에서 제외하도록 지정 |
 | `docs/DATA_PACKAGE_IMPLEMENTATION.md`, `docs/DATA_PREPARATION.md` | 제외 | 데이터 가공 구현 계획·방법·검증 기록도 같은 제외 규칙 적용 |
@@ -52,11 +53,13 @@
 | BAZE/HAI GPT·Google 영상 사용법 | 공식 설정 안내·API 명세·한림대 가이드와 Google 문서 확인 |
 | 구 기획 2개 | `docs/past/`에 보관 |
 | 앱용 통합 데이터 패키지·마스크 ID 변환 파일 | 생성·검증 완료. 20 ROI·200점·33 마스크·33 T1, 총 71파일 |
+| 로컬 분석 함수 | 구현·실제 자료 대조 완료. 영역·신호 조회, 두 영역 비교, 조건별 검색, 이동 창, 단면 조회 |
+| FastAPI·AI 도구 호출 연결 | 미구현. 같은 로컬 함수를 연결하는 다음 단계 |
 | 환경 변수 | `.env.example` 작성. 실제 `.env`의 BAZE_API_KEY 이름·로컬 형식·Git 제외 확인 |
 | BAZE 계정 모델·도구·음성 실호출 | 미검증. 목록·잔액 조회를 포함해 사전 승인 필요 |
 | 제품·음성·화면·Google 생성 소재·본편 | 미구현·미제작 |
 
-데이터 검사·탐색 분석에 이어 앱용 패키지 준비까지 마쳤다. 다음 작업은 패키지를 읽는 로컬 분석 도구와 화면 연결이며, 자연어·음성 연결에 필요한 실제 BAZE 요청은 목적·모델/엔드포인트·최대 호출 수를 설명하고 승인받은 뒤 검증한다.
+데이터 검사·탐색 분석·앱용 패키지에 이어 로컬 분석 함수까지 구현했다. 다음 작업은 입력 검증 모델과 FastAPI 라우트를 연결하는 백엔드 서버다. 자연어·음성 연결에 필요한 실제 BAZE 요청은 목적·모델/엔드포인트·최대 호출 수를 설명하고 승인받은 뒤 검증한다.
 
 환경 변수 예시는 [.env.example](.env.example)이다. 기존 `.env`를 덮어쓰지 않고 키 값은 로컬 파일에만 둔다. 선택적인 모델 변수는 승인된 모델 선택 전까지 비워둘 수 있다. 아직 앱의 환경 변수 로더를 구현한 것은 아니다.
 
@@ -66,7 +69,26 @@
 & 'C:\Users\coola\AppData\Local\Programs\Python\Python311\python.exe' -X utf8 'C:\NERVIS\scripts\prepare_app_data.py' --verify-only
 ```
 
-합성 자료 테스트는 `python -m unittest discover -s tests -v`로 실행한다. 의존성은 기존 NumPy·Pillow이며 외부 통신·키·SDK가 필요 없다. 상세 가공 방법은 [로컬 데이터 처리 문서](docs/DATA_PREPARATION.md)에 기록했다.
+합성 자료 테스트는 `python -m unittest discover -s tests -v`로 실행한다. Python 3.11과 기존 NumPy·SciPy·Pillow를 사용하며 외부 통신·키·SDK가 필요 없다. Windows 링크 검사는 symlink 또는 junction 생성이 허용된 환경이 필요하다. 상세 가공 방법은 [로컬 데이터 처리 문서](docs/DATA_PREPARATION.md)에 기록했다.
+
+## 로컬 분석 함수 사용
+
+프로젝트 루트에서 다음 Python 코드를 실행한다. 패키지를 한 번 읽은 뒤 같은 Dataset으로 조건을 바꿔 호출한다. 시간점은 1~200 양끝 포함이고 초 단위가 아니다.
+
+```python
+from pathlib import Path
+from backend.data import load_dataset
+from backend.analysis import find_similar_pairs, compare_regions
+
+data = load_dataset(Path("data/processed/nervis_v1"))
+ranking = find_similar_pairs(data, scope="homologous", limit=3)
+comparison = compare_regions(data, 1, 11, start=1, end=50)
+print(ranking["status"], comparison["status"])
+```
+
+`backend/analysis.py`는 `get_dataset_summary`, `get_region_info`, `get_timeseries`, `compare_regions`, `find_similar_pairs`, `analyze_pair_over_windows`, `get_region_slices`를 제공한다. 결과는 데이터 버전·요청 조건·상태·주의점과 함께 JSON으로 직렬화할 수 있다. 잘못된 인자는 ValueError, 상수 신호의 상관은 `unavailable`과 `None`으로 구분한다. 반환 객체 수정은 원자료에 반영되지 않는다.
+
+`scripts/verify_local_analysis.py`는 원본·패키지 보존을 검사하고 기존 CSV와 Pearson·Spearman 각각 190쌍, 이동 창 8,740개를 절대 오차 `1e-12`로 대조했다. 결과는 `reports/local_analysis/validation.json`에 있다. 최초 실행 명령은 `python -X utf8 scripts/verify_local_analysis.py`이며 기존 보고서가 있으면 덮어쓰지 않고 중단한다. 추가 수치 대조만 수행하려면 `scripts.verify_local_analysis.verify_reports(data, Path("reports/data_analysis"))`를 호출한다. 기존 보고서와 원본 기준을 다시 만들지 않는다.
 
 공고상 참가 신청은 2026-10-23, 최종 제출은 2026-10-29다. 약 3분·1080p MP4는 자체 제작 목표이며 대회 지정 규격으로 단정하지 않는다. A4 2쪽 이내 AI 활용 보고서 PDF도 준비한다.
 
@@ -82,9 +104,11 @@
 - [Google 영상 모델·생성 소재·편집 흐름](docs/GOOGLE_VIDEO_WORKFLOW.md)
 - [분석 코드](scripts/analyze_data.py)
 - [앱 데이터 가공·검증 코드](scripts/prepare_app_data.py)
+- [로컬 분석 함수](backend/analysis.py)
+- [실제 자료 대조 코드](scripts/verify_local_analysis.py)
 
-탐색 분석은 2026-10-20 실행했고 2026-10-21에는 앱용 패키지 생성·검증을 진행했다. 분석 전체를 다시 실행하거나 기준 원본 목록을 다시 쓰지 않았다. 환경 파일의 로컬 형식 확인을 실제 키 인증·모델·음성 연결 완료와 구분한다. 현재 코딩 에이전트의 모델 제공자도 변경하지 않았다.
+탐색 분석은 2026-10-20 실행했고 2026-10-21에는 앱용 패키지 생성·검증과 로컬 분석 함수를 구현했다. 분석 전체를 다시 실행하거나 기준 원본 목록을 다시 쓰지 않았다. 환경 파일의 로컬 형식 확인을 실제 키 인증·모델·음성 연결 완료와 구분한다. 현재 코딩 에이전트의 모델 제공자도 변경하지 않았다.
 
-기획·규칙·분석 코드의 기준 커밋은 `b8512e7`이다. 이후 환경 예시·가공 코드·합성 테스트와 진행 문서를 추가·갱신했다. 이번 데이터 가공 작업에서는 추가 커밋·푸시를 수행하지 않았다. 원격의 모든 이력·릴리스·첨부까지 검사했다는 뜻은 아니다.
+기획·규칙·탐색 분석 코드의 기준 커밋은 `b8512e7`, 환경 예시·가공 코드·합성 테스트의 커밋은 `822f352`다. 이후 로컬 분석 함수와 검증 코드·문서를 추가·갱신했다. 로컬 함수 구현 작업에서는 커밋·푸시를 수행하지 않았다. 원격의 모든 이력·릴리스·첨부까지 검사했다는 뜻은 아니다.
 
 `.gitignore`는 이미 추적된 파일에는 적용되지 않는다. [Git 공식 문서](https://git-scm.com/docs/gitignore)의 설명처럼 추가 제외와 과거 이력 삭제를 구분한다. 규칙 파일은 [OpenAI 공식 AGENTS.md 안내](https://learn.chatgpt.com/docs/agent-configuration/agents-md)에 따른 프로젝트 지침이다.
