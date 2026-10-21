@@ -26,7 +26,9 @@
 - `docs/past/`는 구 기획 기록이다. 거기 적힌 기능·기술 스택·일정을 현재 확정 요구사항으로 승계하지 않는다.
 - 데이터 검사·탐색 분석과 앱용 통합 데이터 패키지 생성·검증을 마쳤다. 현재 패키지는 `data/processed/nervis_v1/`, 검증 기록은 `reports/data_preparation/validation.json`이다. 대화·화면·음성 앱은 아직 구현하지 않았다.
 - 앱용 가공 코드는 `scripts/prepare_app_data.py`, 합성 데이터 검사는 `tests/test_prepare_app_data.py`다. 기존 출력은 덮어쓰지 않으며 재검증은 `--verify-only`를 사용한다. 원본 해시 기준을 새로 생성하거나 분석 전체를 다시 실행하지 않는다.
-- 로컬 패키지 로더는 `backend/data.py`, 조회·비교·검색·이동 창·단면 함수는 `backend/analysis.py`다. 함수는 서버·모델 없이 실행하며 입력을 검증하고 JSON 호환 결과를 반환한다. FastAPI·AI 도구 연결은 아직 구현하지 않았다.
+- 로컬 패키지 로더는 `backend/data.py`, 조회·비교·검색·이동 창·단면 함수는 `backend/analysis.py`다. 함수는 서버·모델 없이도 실행하며 입력을 검증하고 JSON 호환 결과를 반환한다. FastAPI 데이터·분석 연결은 구현했고 AI 도구 연결은 아직 없다.
+- 서버는 `backend/app.py`, 요청 모델은 `backend/schemas.py`, 실행은 `python -m backend`다. 기본 127.0.0.1:8000, Host는 localhost/127.0.0.1, CORS는 로컬 5173 포트만 허용한다. 패키지는 시작할 때 한 번 검증·로딩하고 등록된 단면만 제공한다. 원본·임의 파일 정적 마운트·업로드·세션·AI·음성 API는 없다.
+- 서버 합성 검사는 `tests/test_api.py`다. 실제 HTTP 확인 기록은 `reports/backend/http_validation.json`이며 기존 검증 기록을 덮어쓰지 않는다. Windows 샌드박스에서는 asyncio 내부 socketpair가 멈출 수 있어, 로컬 통신이 허용된 환경에서 테스트·서버를 실행한다.
 - 로컬 함수의 합성 검사는 `tests/test_analysis.py`, 검증 스크립트 검사는 `tests/test_verify_local_analysis.py`다. 실제 자료 대조는 `scripts/verify_local_analysis.py`, 기록은 `reports/local_analysis/validation.json`이다. 기존 기록을 덮어쓰지 않고 기존 탐색 분석 CSV를 읽어서 대조한다.
 - `.env.example`은 빈 키와 선택 설정만 담는다. 실제 `.env`는 Git에서 제외하며, 앱용 가공 코드는 키나 환경 파일을 읽지 않는다. 환경 파일 형식 확인과 실제 API 인증 성공은 구분한다.
 - 사용자는 음성 호출·맥락을 잇는 실제 AI 도구 호출·뇌 데이터 시각화 시스템을 녹화·편집해 MP4로 제출하는 방향을 선택했다. 분석용 정규화·창 길이·지표와 작품의 표현 규칙을 구분한다.
