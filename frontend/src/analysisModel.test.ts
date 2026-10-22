@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { preferredSlice, pairedSlices, sliceCloud, advanceSample, signalStrength } from './analysisModel.ts'
 import { loadStage } from './stageData.ts'
+import { api, ApiError } from './api.ts'
 
 test('slice choice prioritizes visibility of both ROIs and has an absent-region fallback', () => {
   const records = [
@@ -60,5 +61,23 @@ test('stage loading rejects HTTP failures and mixed data versions before image p
     await assert.rejects(loadStage([], 'expected', null, new AbortController().signal, () => {}), /503/)
     globalThis.fetch = async () => new Response(JSON.stringify({ dataset_version: 'other', pairs: [] }), { status: 200 })
     await assert.rejects(loadStage([], 'expected', null, new AbortController().signal, () => {}), /버전/)
+  } finally { globalThis.fetch = original }
+})
+
+test('explicit pair, subrange and method reach every local calculation without an automatic search', async () => {
+  const original = globalThis.fetch, requests: { path: string; body: unknown }[] = []
+  try {
+    globalThis.fetch = async (path, options) => {
+      requests.push({ path: String(path), body: options?.body ? JSON.parse(String(options.body)) : null })
+      return new Response(JSON.stringify({ dataset_version: 'other' }))
+    }
+    await assert.rejects(loadStage([], 'expected', { region: 2, region_b: 3, start: 51, end: 150, method: 'spearman', window: 40, step: 5 }, new AbortController().signal, () => {}), /버전/)
+    assert.deepEqual(requests.slice(0, 2), [
+      { path: '/api/analysis/compare', body: { region_a: 2, region_b: 3, start: 51, end: 150, method: 'spearman' } },
+      { path: '/api/analysis/windows', body: { region_a: 2, region_b: 3, start: 51, end: 150, method: 'spearman', window: 40, step: 5 } },
+    ])
+    assert.equal(requests.length, 4)
+    globalThis.fetch = async () => new Response('null', { status: 502 })
+    await assert.rejects(api('/api/ai/chat', new AbortController().signal, { command: 'test' }), error => error instanceof ApiError && error.code === 'request_failed')
   } finally { globalThis.fetch = original }
 })

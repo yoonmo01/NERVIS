@@ -12,9 +12,9 @@ export function Icon({ name }: { name: keyof typeof paths }) {
   return <svg viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>
 }
 
-export function Composer({ panel, draft, onDraft, onToggle, onClose, locked, closable }: {
+export function Composer({ panel, draft, onDraft, onToggle, onClose, locked, closable, canSend, status, onSend }: {
   panel: ComposerPanel; draft: string; onDraft: (value: string) => void;
-  onToggle: (target: 'text' | 'voice') => void; onClose: () => void; locked: boolean; closable: boolean;
+  onToggle: (target: 'text' | 'voice') => void; onClose: () => void; locked: boolean; closable: boolean; canSend: boolean; status: string; onSend: () => void;
 }) {
   const textInput = useRef<HTMLTextAreaElement>(null)
   const textLauncher = useRef<HTMLButtonElement>(null)
@@ -37,17 +37,18 @@ export function Composer({ panel, draft, onDraft, onToggle, onClose, locked, clo
     if (active && active !== document.body && !e.currentTarget.contains(active)) return
     if (panel) textInput.current?.focus()
   }} onKeyDown={e => {
-    if (e.key === 'Escape' && closable && panel) { e.preventDefault(); onClose() }
+    if (e.target === textInput.current && e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && panel) { e.preventDefault(); if (canSend && draft.trim()) onSend(); return }
+    if (e.key === 'Escape' && !locked && closable && panel) { e.preventDefault(); onClose() }
   }}>
     <div className="composer-panel" id="conversation-panel" inert={!panel} aria-hidden={!panel}>
-      {closable && <div className="composer-heading"><button className="composer-close" aria-label="입력창 닫기" onClick={onClose}><Icon name="close" /></button></div>}
+      {closable && <div className="composer-heading"><button className="composer-close" aria-label="입력창 닫기" disabled={locked} onClick={onClose}><Icon name="close" /></button></div>}
       <div className={`composer-field${displayedPanel === 'voice' ? ' is-voice' : ''}`}>
         {displayedPanel === 'voice' && <span className="voice-field-icon" aria-hidden="true"><Icon name="mic" /></span>}
-        <textarea ref={textInput} aria-label="NERVIS에게 보낼 내용" maxLength={2000} rows={1} value={draft} disabled={locked} onChange={e => onDraft(e.target.value)} aria-describedby="composer-status" />
+        <textarea ref={textInput} aria-label="NERVIS에게 보낼 내용" maxLength={600} rows={1} value={draft} disabled={locked} onChange={e => onDraft(e.target.value)} aria-describedby="composer-status" />
         <button className="field-mode-button" aria-label={displayedPanel === 'voice' ? '텍스트 입력 모드' : '음성 입력 모드'} aria-pressed={displayedPanel === 'voice'} disabled={locked} onClick={() => onToggle(displayedPanel === 'voice' ? 'text' : 'voice')}>{displayedPanel === 'voice' ? 'T' : <Icon name="mic" />}</button>
-        <button className="send-button" disabled title="AI 연결 후 전송할 수 있습니다." aria-label="전송 · AI 미연결"><Icon name="send" /></button>
+        <button className="send-button" disabled={!canSend || !draft.trim()} title="명령 전송 · Enter" aria-label="명령 전송" onClick={onSend}><Icon name="send" /></button>
       </div>
-      <p id="composer-status" className="composer-status">{locked ? '작업 진행 중 · 완료 후 입력할 수 있습니다.' : displayedPanel === 'text' ? 'AI 미연결 · 작성한 내용은 전송·저장되지 않습니다.' : '음성 모드 · STT 연결 전 · 마이크 꺼짐 · 텍스트 수정 가능'}</p>
+      <p id="composer-status" className="composer-status">{locked ? '작업 진행 중 · 완료 후 입력할 수 있습니다.' : displayedPanel === 'text' ? status : 'STT 미연결 · 마이크 꺼짐 · 입력한 텍스트만 전송됩니다.'}</p>
     </div>
     {!panel && <div className="composer-launchers">
       <span className="composer-caption">대화 열기</span>

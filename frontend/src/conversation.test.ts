@@ -1,0 +1,43 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { checkedReply, viewSelection, pending } from './conversation.ts'
+import type { AIReply, LocalResult } from './conversation.ts'
+
+const result = (tool: string, parameters: Record<string, unknown>, data = {}): LocalResult => ({ result_id: tool, tool, parameters, data: { analysis: tool, dataset_version: 'v', ...data } })
+const reply = (...results: LocalResult[]): AIReply => ({ status: 'ok', model_acknowledgement: '완료', results, warning: null })
+
+test('commands retain explicit pair, method, range and exact returned calculation', () => {
+  const r = result('compare_regions', { region_a: 6, region_b: 16, start: 51, end: 150, method: 'spearman' })
+  const selection = viewSelection(checkedReply(reply(r), 'v'))!
+  assert.equal(selection.region, 6); assert.equal(selection.region_b, 16)
+  assert.equal(selection.start, 51); assert.equal(selection.end, 150); assert.equal(selection.method, 'spearman')
+  assert.equal(selection.comparison, r.data)
+  const windows = viewSelection(reply(result('analyze_pair_over_windows', { region_a: 1, region_b: 2, start: 51, end: 150, window: 40, step: 5 })))!
+  assert.equal(windows.window, 40); assert.equal(windows.step, 5); assert.equal(windows.region_b, 2)
+})
+
+test('ranking uses actual first computed pair and all region counts remain in results', () => {
+  const r = reply(result('find_similar_pairs', { start: 21, end: 100 }, { pairs: [{ region_a: 8, region_b: 18, correlation: .2 }] }))
+  assert.equal(viewSelection(r)?.region, 8); assert.equal(viewSelection(r)?.end, 100)
+  assert.equal(viewSelection(reply(result('get_timeseries', { region_ids: [1, 2, 3] }))), null)
+  assert.equal(viewSelection(reply(result('get_timeseries', { region_ids: [1, 11], start: 51, end: 52 }))), null)
+  assert.equal(viewSelection(reply(result('get_dataset_summary', {}))), null)
+})
+
+test('a requested MRI recommendation is preserved for the analysis stage', () => {
+  const slice = { orientation: 'Coronal', slice_index: 161, pixel_counts: { '6': 42 } }
+  const selection = viewSelection(reply(result('get_region_slices', { region_id: 6, orientation: 'Coronal' }, { recommended_slice: slice })))!
+  assert.equal(selection.region, 6)
+  assert.equal(selection.recommendedSlice, slice)
+})
+
+test('bad versions, repeated IDs and invalid view parameters fail instead of changing the view', () => {
+  const r = result('compare_regions', { region_a: 1, region_b: 11 })
+  assert.throws(() => checkedReply(reply(r), 'other'))
+  assert.throws(() => checkedReply(reply(r, r), 'v'))
+  for (const p of [{ region_a: 1, region_b: 1 }, { region_a: 0, region_b: 11 }, { region_a: 1, region_b: 11, start: 150, end: 51 }]) {
+    assert.throws(() => viewSelection(reply(result('compare_regions', p))))
+  }
+  assert.equal(pending('requesting'), true); assert.equal(pending('applying'), true)
+  assert.equal(pending('error'), false); assert.equal(pending('complete'), false)
+})

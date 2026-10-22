@@ -63,7 +63,7 @@ export function BrainBloom() {
   return null
 }
 
-export function BrainOrbit({ view, revision, active, reduced, onManual, onHome }: { view: CameraView; revision: number; active: boolean; reduced: boolean; onManual: () => void; onHome: () => void }) {
+export function BrainOrbit({ view, revision, active, reduced, onManual, onHome, onSettled }: { view: CameraView; revision: number; active: boolean; reduced: boolean; onManual: () => void; onHome: () => void; onSettled: () => void }) {
   const { camera, gl, invalidate, size } = useThree()
   const [orbitFrame, setOrbitFrame] = useState(0)
   const orbit = useRef<OrbitControls | null>(null), fit = useRef(100)
@@ -117,10 +117,13 @@ export function BrainOrbit({ view, revision, active, reduced, onManual, onHome }
       transition.current = null
       // OrbitControls caches camera.up when constructed; rebuild after a preset changes it.
       setOrbitFrame(value => value + 1)
+      onSettled()
     }
   })
   return null
 }
+
+export function clearBrainModel() { useLoader.clear(GLTFLoader, brainUrl) }
 
 export default function SchematicBrain({ data, sample, onReady }: { data: StageData; sample: number; onReady: () => void }) {
   const gltf = useLoader(GLTFLoader, brainUrl)
@@ -139,6 +142,6 @@ export default function SchematicBrain({ data, sample, onReady }: { data: StageD
   return <group>{meshes.map(mesh => {
     const column = data.comparison.regions.findIndex(region => region.label_id === mesh.id)
     if (mesh.id && column < 0) return null
-    return <Surface key={mesh.name} geometry={mesh.geometry} id={mesh.id} value={data.comparison.zscore[sample - 1]?.[column] ?? 0} />
+    return <Surface key={mesh.name} geometry={mesh.geometry} id={mesh.id} value={data.comparison.zscore[sample - data.comparison.samples[0]]?.[column] ?? 0} />
   })}</group>
 }

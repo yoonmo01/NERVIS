@@ -3,7 +3,10 @@ import { api } from './api.ts'
 import type { Comparison, PairSearch, Region, Slice, SliceResult, WindowResult } from './api.ts'
 import { pairedSlices, sliceCloud } from './analysisModel.ts'
 
-export interface StageSelection { region: number }
+export interface StageSelection {
+  region: number; region_b?: number; start?: number; end?: number; method?: 'pearson' | 'spearman'
+  window?: number; step?: number; comparison?: Comparison; windowResult?: WindowResult; recommendedSlice?: Slice
+}
 export interface SlicePlane {
   record: Slice; t1: HTMLImageElement; mask: HTMLImageElement
   pixels: Uint8ClampedArray; maskPixels: Uint8ClampedArray
@@ -49,18 +52,30 @@ export async function loadStage(regions: Region[], version: string, selection: S
     if (!ranked.pairs.length) throw new Error('비교 가능한 대응 영역이 없습니다.')
     a = ranked.pairs[0].region_a
   }
-  const [left, right] = hemispherePair(regions, a)
-  a = left.label_id
-  const b = right.label_id
+  const pair = selection?.region_b === undefined ? hemispherePair(regions, a).map(r => r.label_id) : [a, selection.region_b]
+  a = pair[0]
+  const b = pair[1]
+  const start = selection?.start ?? 1, end = selection?.end ?? 200, method = selection?.method ?? 'pearson'
+  const window = selection?.window ?? Math.min(50, end - start + 1), step = selection?.step ?? Math.min(10, end - start + 1)
   const directions = ['Axial', 'Coronal'] as const
   phase('파형·구간별 관계 계산')
   const [comparison, windows, ...sliceResults] = await Promise.all([
-    api<Comparison>('/api/analysis/compare', signal, { region_a: a, region_b: b }),
-    api<WindowResult>('/api/analysis/windows', signal, { region_a: a, region_b: b, window: 50, step: 10 }),
+    selection?.comparison ?? api<Comparison>('/api/analysis/compare', signal, { region_a: a, region_b: b, start, end, method }),
+    selection?.windowResult ?? api<WindowResult>('/api/analysis/windows', signal, { region_a: a, region_b: b, start, end, method, window, step }),
     ...directions.map(orientation => api<SliceResult>(`/api/regions/${a}/slices?orientation=${orientation}`, signal)),
   ])
   check(comparison); check(windows); sliceResults.forEach(check)
-  const records = pairedSlices(sliceResults.flatMap(value => value.slices), a, b)
+  if (comparison.samples.length !== end - start + 1 || comparison.samples[0] !== start || comparison.samples.at(-1) !== end ||
+      comparison.regions.map(r => r.label_id).join(',') !== `${a},${b}` || comparison.zscore.length !== comparison.samples.length ||
+      comparison.zscore.some(row => row.length !== 2 || row.some(value => !Number.isFinite(value)))) throw new Error('요청한 영역·구간과 화면 데이터가 일치하지 않습니다.')
+  const registered = sliceResults.flatMap(value => value.slices)
+  const recommended = selection?.recommendedSlice
+  const records = pairedSlices(registered, a, b).map(record => {
+    if (recommended?.orientation !== record.orientation) return record
+    const match = registered.find(r => r.orientation === recommended.orientation && r.slice_index === recommended.slice_index)
+    if (!match) throw new Error('요청한 추천 단면이 등록되어 있지 않습니다.')
+    return match
+  })
   phase('두 방향 MRI·영역 마스크 준비')
   const planes = await Promise.all(records.map(async record => {
     const [t1, mask] = await Promise.all(['t1', 'mask'].map(kind => image(`/api/slices/${record.orientation}/${record.slice_index}/${kind}`, signal)))

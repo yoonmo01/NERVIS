@@ -47,6 +47,33 @@
 .common-interface.is-ready {
   opacity:1;
 }
+.conversation-result {
+  position:absolute; right:35px; top:110px; width:min(360px,calc(100vw - 40px));
+  max-height:calc(100svh - 300px); overflow:auto; padding:16px; pointer-events:auto;
+  color:#c0dce9; background:#071923f2; border:1px solid #42768f88; border-radius:10px;
+  box-shadow:0 12px 45px #0007; font-size:12px; line-height:1.7;
+}
+.conversation-result-heading { display:flex; align-items:center; justify-content:space-between; color:#78c6e6; letter-spacing:.15em; font-size:10px; }
+.conversation-result-heading button { font-size:24px; padding:0 5px; }
+.submitted-command { color:#829fae; font-size:11px; margin:7px 0; overflow-wrap:anywhere; }
+.request-state { color:#8ad8ed; margin:6px 0; }
+.request-state.has-error { color:#e9b98c; }
+.model-acknowledgement { margin:6px 0; }
+.local-results { margin-top:10px; }
+.local-results summary { cursor:pointer; color:#85b9ce; font-size:10px; }
+.command-result { border-top:1px solid #46798a44; padding-top:9px; margin-top:9px; }
+.command-result h3 { margin:0 0 5px; font-size:12px; font-weight:500; }
+.command-result p,.command-result ul { margin:5px 0; font-size:10px; }
+.command-pairs { margin:6px 0; padding-left:18px; }
+.command-pairs button { display:block; width:100%; text-align:left; padding:6px 0; color:#b0d5e5; font-size:10px; }
+.command-pairs b { margin-left:8px; }
+.command-pairs small { display:block; color:#72a3b6; font-size:9px; }
+.common-interface .command-signals { width:100%; height:90px; display:block; stroke:none; }
+.ai-status-refresh { position:absolute; right:36px; bottom:54px; font-size:9px; color:#7297aa; }
+.app--analysis .conversation-result { right:auto; left:calc(var(--analysis-side,35px) + 250px); top:calc(var(--analysis-top,84px) + 70px); width:310px; max-height:calc(100svh - 330px); }
+@media(max-width:1400px) { .app--analysis .conversation-result { left:270px; width:280px; } }
+@media(max-width:1000px) { .app--analysis .conversation-result { left:auto; right:24px; top:110px; } }
+@media(max-width:650px) { .conversation-result,.app--analysis .conversation-result { right:20px; left:auto; top:100px; width:calc(100vw - 40px); max-height:260px; } }
 .common-interface button,.common-interface textarea {
   pointer-events:auto;
 }

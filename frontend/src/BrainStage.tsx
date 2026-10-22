@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useMemo, useRef, useEffect, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
-import SchematicBrain, { BrainBloom, BrainOrbit } from './SchematicBrain.tsx'
+import SchematicBrain, { BrainBloom, BrainOrbit, clearBrainModel } from './SchematicBrain.tsx'
 import { displayColor, maskBoundary } from './brainVisual.ts'
 import { SceneBoundary } from './CoreScene.tsx'
 import type { SlicePlane, StageData } from './stageData.ts'
@@ -41,18 +41,23 @@ export function SliceCanvas({ plane, region, regions, label, values = [] }: { pl
   return <canvas ref={canvas} role="img" aria-label={label} />
 }
 
-export default function BrainStage({ data, sample, active, reduced }: {
-  data: StageData; sample: number; active: boolean; reduced: boolean;
+export default function BrainStage({ data, sample, active, reduced, onReady: reportReady, onError }: {
+  data: StageData; sample: number; active: boolean; reduced: boolean; onReady: () => void; onError: () => void;
 }) {
   const [view, setView] = useState<CameraView>('default'), [revision, setRevision] = useState(0), [manual, setManual] = useState(false), [ready, setReady] = useState(false)
   const onManual = useCallback(() => setManual(true), [])
   const onHome = useCallback(() => { setView('default'); setManual(false); setRevision(value => value + 1) }, [])
+  const [settled, setSettled] = useState(false)
+  const onSettled = useCallback(() => setSettled(true), [])
   const onReady = useCallback(() => setReady(true), [])
+  useEffect(() => { if (ready && settled) reportReady() }, [ready, settled, reportReady])
+  // Failed useLoader entries persist; clear them so an explicit retry can reload.
+  const failed = useCallback(() => { clearBrainModel(); onError() }, [onError])
   return <div className="spatial-stage" role="group" aria-label="회전 가능한 일반 뇌 모형 · 선택 영역은 개략 위치" aria-busy={!ready}>
     <div className="scan-reticle" aria-hidden="true" />
-    <SceneBoundary onError={onReady}><Canvas orthographic camera={{ position: [...cameraPresets.default.position], zoom: 100, near: .1, far: 100 }} dpr={[1, 1.5]} frameloop={active ? 'always' : 'demand'}
+    <SceneBoundary onError={failed}><Canvas orthographic camera={{ position: [...cameraPresets.default.position], zoom: 100, near: .1, far: 100 }} dpr={[1, 1.5]} frameloop={active ? 'always' : 'demand'}
       resize={{ debounce: 0, offsetSize: true }} gl={{ alpha: true, antialias: true }}>
-      <BrainOrbit view={view} revision={revision} active={active} reduced={reduced} onManual={onManual} onHome={onHome} />
+      <BrainOrbit view={view} revision={revision} active={active} reduced={reduced} onManual={onManual} onHome={onHome} onSettled={onSettled} />
       <BrainBloom />
       <Suspense fallback={null}><SchematicBrain data={data} sample={sample} onReady={onReady} /></Suspense>
     </Canvas>

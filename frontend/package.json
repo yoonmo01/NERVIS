@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test": "node --experimental-strip-types --test src/model.test.ts src/analysisModel.test.ts src/brainVisual.test.ts src/hologramModel.test.ts"
+    "test": "node --experimental-strip-types --test src/model.test.ts src/analysisModel.test.ts src/brainVisual.test.ts src/hologramModel.test.ts src/conversation.test.ts"
   },
   "dependencies": {
     "@react-three/fiber": "9.8.2",

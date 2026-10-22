@@ -1,0 +1,79 @@
+import type { Comparison, Slice, WindowResult } from './api.ts'
+import type { StageSelection } from './stageData.ts'
+
+export type CommandPhase = 'idle' | 'requesting' | 'applying' | 'complete' | 'error'
+export interface AIStatus { enabled: boolean; model: string; remaining_process_requests: number; busy: boolean }
+export interface LocalResult { result_id: string; tool: string; parameters: Record<string, unknown>; data: Record<string, unknown> }
+export interface AIReply { status: 'ok' | 'partial'; model_acknowledgement: string | null; results: LocalResult[]; warning: string | null }
+export interface ViewContext { selected_region_ids: number[]; start: number; end: number }
+export interface ViewRequest { id: number; selection: StageSelection }
+
+const toolNames = ['get_dataset_summary', 'get_region_info', 'get_timeseries', 'compare_regions', 'find_similar_pairs', 'analyze_pair_over_windows', 'get_region_slices']
+export function pending(phase: CommandPhase) { return phase === 'requesting' || phase === 'applying' }
+
+function integer(value: unknown, low: number, high: number): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < low || value > high) throw new Error('분석 응답의 범위가 올바르지 않습니다.')
+  return value
+}
+
+export function checkedReply(value: AIReply, version: string): AIReply {
+  if (!value || !['ok', 'partial'].includes(value.status) || !Array.isArray(value.results) || value.results.length > 6 ||
+      !(value.model_acknowledgement === null || typeof value.model_acknowledgement === 'string')) throw new Error('AI 응답 형식이 올바르지 않습니다.')
+  const ids = new Set<string>()
+  for (const result of value.results) {
+    if (!result || typeof result.result_id !== 'string' || ids.has(result.result_id) || !toolNames.includes(result.tool) ||
+        !result.parameters || !result.data || result.data.analysis !== result.tool || result.data.dataset_version !== version) throw new Error('분석 결과의 도구 또는 데이터 버전이 일치하지 않습니다.')
+    ids.add(result.result_id)
+  }
+  return value
+}
+
+export function pairSelection(a: unknown, b: unknown, parameters: Record<string, unknown>): StageSelection {
+  const region = integer(a, 1, 20), region_b = integer(b, 1, 20)
+  const start = integer(parameters.start ?? 1, 1, 200), end = integer(parameters.end ?? 200, start, 200)
+  if (region === region_b || end - start < 2 || !['pearson', 'spearman'].includes(String(parameters.method ?? 'pearson'))) throw new Error('비교 대상 또는 분석 구간이 올바르지 않습니다.')
+  return { region, region_b, start, end, method: (parameters.method ?? 'pearson') as 'pearson' | 'spearman' }
+}
+
+export function viewSelection(reply: AIReply): StageSelection | null {
+  let selection: StageSelection | null = null
+  // Prefer the final explicit calculation over supporting info tools in the same batch.
+  for (const result of reply.results) {
+    const p = result.parameters
+    if (result.tool === 'compare_regions' || result.tool === 'analyze_pair_over_windows') {
+      selection = pairSelection(p.region_a, p.region_b, p)
+      if (result.tool === 'compare_regions') selection.comparison = result.data as unknown as Comparison
+      else {
+        selection.window = integer(p.window ?? 50, 3, selection.end! - selection.start! + 1)
+        selection.step = integer(p.step ?? 10, 1, selection.end! - selection.start! + 1)
+        selection.windowResult = result.data as unknown as WindowResult
+      }
+    }
+  }
+  if (selection) return selection
+  const ranked = reply.results.find(r => r.tool === 'find_similar_pairs')
+  if (ranked && Array.isArray(ranked.data.pairs) && ranked.data.pairs.length) {
+    const pair = ranked.data.pairs[0] as Record<string, unknown>
+    return pairSelection(pair.region_a, pair.region_b, ranked.parameters)
+  }
+  const timeseries = reply.results.find(r => r.tool === 'get_timeseries')
+  if (timeseries && Array.isArray(timeseries.parameters.region_ids) && timeseries.parameters.region_ids.length === 2) {
+    if (Number(timeseries.parameters.end ?? 200) - Number(timeseries.parameters.start ?? 1) < 2) return null
+    return pairSelection(...timeseries.parameters.region_ids as [number, number], timeseries.parameters)
+  }
+  const region = reply.results.find(r => r.tool === 'get_region_slices') ?? reply.results.find(r => r.tool === 'get_region_info')
+  return region ? { region: integer(region.parameters.region_id, 1, 20),
+    recommendedSlice: region.tool === 'get_region_slices' && region.data.recommended_slice ? region.data.recommended_slice as Slice : undefined } : null
+}
+
+export function aiErrorMessage(code: string): string {
+  const messages: Record<string, string> = {
+    ai_budget_exhausted_or_disabled: 'AI 호출이 꺼져 있거나 승인된 호출 예산을 모두 사용했습니다.',
+    ai_request_in_progress: '서버에서 이전 요청을 처리 중입니다. 완료 후 새 명령을 보내 주세요.',
+    'AI configuration is invalid': '서버의 AI 설정을 확인해 주세요.',
+    gateway_http_401: 'Gateway 인증을 확인해 주세요.', gateway_http_403: '해당 모델의 사용 권한을 확인해 주세요.',
+    gateway_http_402: 'Gateway 크레딧을 확인해 주세요.', gateway_http_429: 'Gateway 사용 제한에 도달했습니다. 자동 재시도하지 않습니다.',
+    gateway_connection_or_json_error: 'Gateway 응답을 확인하지 못했습니다. 이미 과금됐을 수 있어 자동 재전송하지 않습니다.',
+  }
+  return messages[code] ?? '요청을 완료하지 못했습니다. 자동 재전송하지 않았습니다.'
+}

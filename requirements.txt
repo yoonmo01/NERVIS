@@ -1,9 +1,10 @@
-# Local API + synthetic tests, verified with Python 3.11. No model SDK needed.
+# Local API, bounded BAZE HTTP client and synthetic tests (Python 3.11).
 fastapi==0.136.1
 pydantic==2.13.3
 uvicorn==0.46.0
 starlette==1.0.0
 httpx==0.28.1
+python-dotenv==1.2.2
 numpy==2.4.2
 scipy==1.17.0
 Pillow==12.1.1

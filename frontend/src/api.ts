@@ -38,6 +38,15 @@ export interface Comparison {
   regions: Region[]
 }
 
+export class ApiError extends Error {
+  code: string
+  status: number
+  constructor(status: number, code: string) {
+    super(`로컬 서버 요청에 실패했습니다 (${status}).`)
+    this.code = code; this.status = status
+  }
+}
+
 export async function api<T>(path: string, signal: AbortSignal, body?: object): Promise<T> {
   if (!path.startsWith('/api/')) throw new Error('Only local API routes are allowed')
   const response = await fetch(path, {
@@ -47,7 +56,10 @@ export async function api<T>(path: string, signal: AbortSignal, body?: object): 
     body: body ? JSON.stringify(body) : undefined,
     cache: 'no-store',
   })
-  if (!response.ok) throw new Error(`로컬 서버 요청에 실패했습니다 (${response.status}).`)
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}))
+    throw new ApiError(response.status, error && typeof error.detail === 'string' ? error.detail : 'request_failed')
+  }
   return response.json()
 }
 
