@@ -53,13 +53,6 @@
 .spatial-stage canvas { display:block; }
 .scan-reticle { position:absolute; width:min(57%,280px); aspect-ratio:1; border:1px solid #64bad61c; border-radius:50%; top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:none; box-shadow:0 0 80px #2b86a411; }
 .scan-reticle:before { content:''; position:absolute; inset:-15px; border:1px dashed #4a9bbe1c; border-radius:50%; }
-.stage-region-labels { position:absolute; left:12px; right:120px; bottom:12px; display:flex; justify-content:space-between; gap:12px; pointer-events:none; }
-.stage-region-labels button { pointer-events:auto; font-size:9px; color:#a7cadc; padding:6px; border-bottom:1px solid var(--roi-color); background:#05131c99; }
-.stage-region-labels i { display:inline-block; width:4px; height:4px; border-radius:50%; background:var(--roi-color); margin-right:7px; }
-.stage-region-labels span { display:block; margin-top:5px; font-size:7px; color:#5e8aa2; }
-.mri-inset { position:absolute; right:10px; bottom:9px; width:92px; padding:5px; border:1px solid #548a9f55; background:#050c13dd; }
-.mri-inset canvas { width:100%; height:72px; object-fit:contain; display:block; }
-.mri-inset span { display:block; color:#8bb4c9; font-size:8px; padding-top:5px; }
 .stage-sample { position:absolute; left:12px; top:13px; font-size:8px; letter-spacing:.1em; color:#60869c; pointer-events:none; }
 .stage-sample b { color:#b7ddec; font:18px Bahnschrift,sans-serif; margin-left:7px; }
 .stage-complete .brain-stage-body,.stage-complete .region-card,.stage-complete .stage-chart-wrap { animation:stage-reveal .6s ease-out; }
@@ -87,10 +80,6 @@
   .stage-correlation strong { font-size:37px; }
   .analysis-workspace--expanded .small-metrics { gap:7px; font-size:9px; }
   .analysis-workspace--expanded .signal-panel { padding:10px 14px; gap:5px; }
-  .mri-inset { width:78px; }
-  .mri-inset canvas { height:56px; }
-  .stage-region-labels { right:95px; left:7px; gap:5px; }
-  .stage-region-labels button { font-size:8px; padding:5px; }
   .analysis-workspace--expanded .brain-caption { font-size:8px; }
   .analysis-workspace--expanded .brain-caption .quiet { font-size:7px; }
 }
@@ -106,10 +95,75 @@
   .analysis-workspace--expanded .signal-panel { height:210px; min-height:210px; }
   .playback-controls small { display:none; }
   .window-strip>small { display:none; }
-  .stage-region-labels { right:100px; gap:4px; }
-  .stage-region-labels button { font-size:8px; padding:3px; }
-  .mri-inset { width:78px; }
-  .mri-inset canvas { height:58px; }
   .analysis-detail { padding:22px 16px; }
   .analysis-detail dl { font-size:10px; gap:10px; }
 }
+
+.brain-orbit-tools { position:absolute; top:9px; right:10px; display:flex; align-items:center; gap:10px; color:#8caebd; font-size:9px; }
+.brain-orbit-tools button { border:1px solid #315265; background:#071720cc; padding:5px 8px; color:#b6e2ed; cursor:pointer; }
+.brain-loading { position:absolute; top:45%; left:0; right:0; text-align:center; color:#b6e2ed; }
+
+.manual-selection { margin:0 0 12px; }
+.manual-selection summary { width:100%; line-height:1.5; }
+.manual-selection .selection-controls { top:0; transform:none; padding-top:28px; }
+.selection-close { position:absolute; right:8px; top:3px; width:26px; height:26px; font-size:22px; color:#b6e2ed; }
+.mri-pair-button { display:grid; grid-template-columns:1fr 1fr; gap:6px; width:100%; padding:6px; border:1px solid #548a9f55; background:#050c13; margin-bottom:10px; }
+.mri-pair-button>span { min-width:0; }
+.mri-pair-button canvas { display:block; width:100%; height:calc(clamp(65px,10svh,100px) + 5px); object-fit:contain; }
+.mri-pair-button small { display:block; margin-top:5px; font-size:8px; color:#8bb4c9; }
+.roi-image-pair { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+.roi-image-pair .region-card { display:block; padding:5px; }
+.roi-image-pair .region-card-image { height:calc(clamp(46px,8svh,76px) + 5px); }
+.roi-image-pair .region-card h3 { margin:4px 0 10px; font-size:10px; line-height:1.4; }
+.roi-image-pair .region-card small { color:var(--roi-color); }
+.comparison-table { width:100%; border-collapse:collapse; font-size:10px; margin-top:16px; }
+.comparison-table th,.comparison-table td { padding:10px 3px; text-align:right; border-bottom:1px solid #4584ab22; white-space:nowrap; font-weight:400; }
+.comparison-table th:first-child { text-align:left; color:#7e9faf; }
+.comparison-table small { display:block; font-size:8px; color:#6a8999; }
+.comparison-table tr>:nth-child(2) { color:#7edbf2; }
+.comparison-table tr>:nth-child(3) { color:#efc17d; }
+.brain-orbit-tools>div { display:flex; gap:4px; }
+.brain-orbit-tools button[aria-pressed=true] { border-color:#99d9ef; background:#153849; }
+.analysis-detail--pair { width:min(960px,92vw); }
+.detail-mri-pair { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.detail-mri-pair figure { margin:0; min-width:0; }
+.detail-mri-pair figcaption { color:#8bb4c9; font-size:12px; margin-bottom:10px; }
+.detail-mri-pair canvas { display:block; width:100%; height:min(46svh,400px); object-fit:contain; background:#01060a; }
+@media(max-height:820px) and (min-width:1001px) {
+  .manual-selection { margin-bottom:7px; }
+  .mri-pair-button { margin-bottom:7px; padding:4px; }
+  .mri-pair-button canvas { height:55px; }
+  .roi-image-pair .region-card-image { height:39px; }
+  .roi-image-pair .region-card h3 { font-size:9px; }
+  .comparison-table { margin-top:7px; font-size:9px; }
+  .comparison-table th,.comparison-table td { padding:7px 2px; }
+  .brain-orbit-tools>span { display:none; }
+}
+@media(max-width:650px) {
+  .detail-mri-pair { grid-template-columns:1fr; }
+  .brain-orbit-tools>span { display:none; }
+  .brain-orbit-tools { top:42px; left:10px; right:auto; }
+}
+
+.current-signal { margin-top:14px; padding:12px 10px; border:1px solid #6099af55; background:#0b263844; }
+.current-signal-heading { display:flex; justify-content:space-between; gap:8px; align-items:center; color:#b4d9e9; font-size:11px; }
+.current-signal-heading small { color:#7198ab; font-size:8px; }
+.current-signal-values { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px; }
+.current-signal-values>div { color:var(--roi-color); }
+.current-signal-values small { font-size:9px; }
+.current-signal-values strong { display:block; font:28px/1.2 Bahnschrift,sans-serif; font-variant-numeric:tabular-nums; }
+@media(max-height:820px) and (min-width:1001px) {
+  .current-signal { margin-top:5px; padding:8px; }
+  .current-signal-values { margin-top:5px; }
+  .current-signal-values strong { font-size:24px; }
+  .comparison-panel .stage-correlation { margin-top:9px; margin-bottom:9px; }
+}
+
+.roi-pair-button { display:block; width:100%; text-align:left; border:1px solid #548a9f55; background:#050c13; padding:6px; }
+.roi-pair-button:hover { background:#0b2434; }
+.roi-pair-title { display:block; margin-bottom:7px; color:#9bc4d6; font-size:9px; }
+.roi-pair-button .region-card { border:0; background:transparent; padding:0; }
+.roi-pair-button .region-card h3 { margin-bottom:2px; }
+.roi-image-pair .region-card--expanded { padding:10px; }
+.roi-image-pair .region-card--expanded .region-card-image { height:min(42svh,360px); }
+.roi-image-pair .region-card--expanded h3 { font-size:13px; }

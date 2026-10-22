@@ -10,6 +10,14 @@ export function preferredSlice(records: Slice[], a: number, b: number): Slice | 
   return best
 }
 
+export function pairedSlices(records: Slice[], a: number, b: number): Slice[] {
+  return (['Axial', 'Coronal'] as const).map(orientation => {
+    const record = preferredSlice(records.filter(item => item.orientation === orientation), a, b)
+    if (!record) throw new Error(`${orientation} 제공 단면을 찾을 수 없습니다.`)
+    return record
+  })
+}
+
 export interface Bounds { x: number; y: number; width: number; height: number }
 export function sliceCloud(t1: Uint8ClampedArray, mask: Uint8ClampedArray, width: number, height: number,
   a: number, b: number, stride = 6) {

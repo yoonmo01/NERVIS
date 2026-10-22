@@ -1,0 +1,95 @@
+{
+  "schema": "nervis-hologram-render-v1",
+  "glb": "nervis-hologram-brain.glb",
+  "mesh_count": 22,
+  "selection": "Keep both Cortex_Shell meshes visible; show only selected ROI label_ids. Hide unselected ROI meshes. Do not show all 20 on load.",
+  "fallback_materials": "Basic translucent glTF PBR only; Blender compositor/Fresnel network is NOT embedded. Use supplied GLSL reference and tune in target renderer.",
+  "attributes": {
+    "_nervis_micro": "float [0,1], baked fine surface variation; emission *= .48+1.45*micro, alpha *= .8+.65*micro",
+    "_nervis_ridge": "float [0,1], authored curvature highlight",
+    "_nervis_edge": "float [0,1], inward ROI feather: 0 boundary, 1 interior",
+    "_nervis_context": "float [0,1], reduced opacity of medial context walls; ROI is 1"
+  },
+  "colors_linear": {
+    "cortex": [
+      0.14,
+      0.4,
+      0.61
+    ],
+    "left": [
+      0.015,
+      0.62,
+      0.95
+    ],
+    "right": [
+      1,
+      0.43,
+      0.075
+    ]
+  },
+  "signal": {
+    "range": [
+      0,
+      1
+    ],
+    "gain": "0.8 + 1.2 * strength",
+    "zero": "Selected region remains visible. Selection is independent of signal.",
+    "data": "No timeseries in model. Host app supplies normalized display strength; magnitude is not proof of activation increase."
+  },
+  "camera": {
+    "projection": "orthographic",
+    "vertical_span": 3.45,
+    "look_at_gltf": [
+      0,
+      0,
+      0
+    ],
+    "presets_gltf": {
+      "hero": [
+        0,
+        7.8,
+        -2.4
+      ],
+      "oblique": [
+        4.8,
+        5,
+        -2.6
+      ],
+      "lateral_left": [
+        7.5,
+        2,
+        -0.4
+      ],
+      "lateral_right": [
+        -7.5,
+        2,
+        -0.4
+      ],
+      "medial": [
+        3.4,
+        5.5,
+        -2.2
+      ]
+    }
+  },
+  "compositing": {
+    "blender": "AgX, exposure 0; Fog Glow quality High, threshold 1, strength .28, size .25",
+    "web": "Implement bloom separately; Blender node Size does not directly map to a Three.js bloom radius. Match actual renders."
+  },
+  "particles": {
+    "included_in_glb": false,
+    "blender_preview_counts": {
+      "per_shell": 8500,
+      "per_roi": 1800
+    },
+    "reproduction": "Sample current visible surface; use seeded sampling, small additive points, depth-tested. Do not recreate voxel masks or use patient inputs."
+  },
+  "render_notes": [
+    "Use actual normals; do not use wireframe triangle edges.",
+    "Retain backface attenuation and inward edge feather.",
+    "Do not force selected regions to render over all depth.",
+    "Transparent surfaces can require explicit front/back passes and sorting; verify 360-degree orbit.",
+    "Default displayed example: IDs 2 and 12, strength .6.",
+    "GLSL reference is a porting reference, not a tested frontend integration."
+  ]
+}

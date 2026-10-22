@@ -1,15 +1,16 @@
+import { hemispherePair } from './brainVisual.ts'
 import { api } from './api.ts'
 import type { Comparison, PairSearch, Region, Slice, SliceResult, WindowResult } from './api.ts'
-import { preferredSlice, sliceCloud } from './analysisModel.ts'
+import { pairedSlices, sliceCloud } from './analysisModel.ts'
 
-export interface StageSelection { region: number; orientation?: 'Axial' | 'Coronal' }
+export interface StageSelection { region: number }
 export interface SlicePlane {
   record: Slice; t1: HTMLImageElement; mask: HTMLImageElement
   pixels: Uint8ClampedArray; maskPixels: Uint8ClampedArray
   cloud: ReturnType<typeof sliceCloud>
 }
 export interface StageData {
-  comparison: Comparison; windows: WindowResult['windows']; planes: SlicePlane[]; center: SlicePlane
+  comparison: Comparison; windows: WindowResult['windows']; planes: SlicePlane[]
   automatic: boolean
 }
 
@@ -48,10 +49,10 @@ export async function loadStage(regions: Region[], version: string, selection: S
     if (!ranked.pairs.length) throw new Error('비교 가능한 대응 영역이 없습니다.')
     a = ranked.pairs[0].region_a
   }
-  const region = regions.find(item => item.label_id === a)
-  if (!region) throw new Error('선택 영역을 확인할 수 없습니다.')
-  const b = region.contralateral_id
-  const directions = selection?.orientation ? [selection.orientation] : ['Axial', 'Coronal'] as const
+  const [left, right] = hemispherePair(regions, a)
+  a = left.label_id
+  const b = right.label_id
+  const directions = ['Axial', 'Coronal'] as const
   phase('파형·구간별 관계 계산')
   const [comparison, windows, ...sliceResults] = await Promise.all([
     api<Comparison>('/api/analysis/compare', signal, { region_a: a, region_b: b }),
@@ -59,13 +60,9 @@ export async function loadStage(regions: Region[], version: string, selection: S
     ...directions.map(orientation => api<SliceResult>(`/api/regions/${a}/slices?orientation=${orientation}`, signal)),
   ])
   check(comparison); check(windows); sliceResults.forEach(check)
-  const centerRecord = preferredSlice(sliceResults.flatMap(value => value.slices), a, b)
-  if (!centerRecord) throw new Error('선택 영역을 표시하는 제공 단면이 없습니다. 다른 방향을 선택해 주세요.')
-  const records = sliceResults.flatMap(value => value.slices).filter(value => value.orientation === centerRecord.orientation).sort((x, y) => x.slice_index - y.slice_index)
-  const at = records.findIndex(value => value.slice_index === centerRecord.slice_index)
-  const nearby = records.slice(Math.max(0, at - 2), Math.min(records.length, at + 3))
-  phase('실제 단면·영역 공간 표현 준비')
-  const planes = await Promise.all(nearby.map(async record => {
+  const records = pairedSlices(sliceResults.flatMap(value => value.slices), a, b)
+  phase('두 방향 MRI·영역 마스크 준비')
+  const planes = await Promise.all(records.map(async record => {
     const [t1, mask] = await Promise.all(['t1', 'mask'].map(kind => image(`/api/slices/${record.orientation}/${record.slice_index}/${kind}`, signal)))
     if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
     if (t1.naturalWidth !== mask.naturalWidth || t1.naturalHeight !== mask.naturalHeight) throw new Error('MRI와 마스크의 크기가 일치하지 않습니다.')
@@ -74,5 +71,5 @@ export async function loadStage(regions: Region[], version: string, selection: S
       cloud: sliceCloud(t1Pixels, maskPixels, t1.naturalWidth, t1.naturalHeight, a, b) }
   }))
   if (signal.aborted) throw new DOMException('Aborted', 'AbortError')
-  return { comparison, windows: windows.windows, planes, center: planes.find(plane => plane.record.slice_index === centerRecord.slice_index)!, automatic: selection === null }
+  return { comparison, windows: windows.windows, planes, automatic: selection === null }
 }

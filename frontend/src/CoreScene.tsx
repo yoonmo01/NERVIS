@@ -67,11 +67,12 @@ function Core({ level, reduced }: { level: RefObject<number>; reduced: boolean }
   </group>
 }
 
-export class SceneBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+export class SceneBoundary extends Component<{ children: ReactNode; onError?: () => void }, { failed: boolean }> {
   state = { failed: false }
   static getDerivedStateFromError() { return { failed: true } }
+  componentDidCatch() { this.props.onError?.() }
   render() {
-    if (this.state.failed) return <div className="webgl-fallback" role="status">3D 화면을 시작할 수 없습니다.<br />WebGL을 지원하는 브라우저에서 확인해 주세요.</div>
+    if (this.state.failed) return <div className="webgl-fallback" role="status">3D 모형 또는 그래픽 화면을 불러오지 못했습니다.<br />새로고침 후 다시 확인해 주세요.</div>
     return this.props.children
   }
 }

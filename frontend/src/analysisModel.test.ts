@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { preferredSlice, sliceCloud, advanceSample, signalStrength } from './analysisModel.ts'
+import { preferredSlice, pairedSlices, sliceCloud, advanceSample, signalStrength } from './analysisModel.ts'
 import { loadStage } from './stageData.ts'
 
 test('slice choice prioritizes visibility of both ROIs and has an absent-region fallback', () => {
@@ -13,6 +13,17 @@ test('slice choice prioritizes visibility of both ROIs and has an absent-region 
   assert.equal(preferredSlice(records.slice(0, 1), 1, 11)?.slice_index, 1)
   assert.equal(preferredSlice([], 1, 11), null)
   assert.deepEqual(records.map(r => r.slice_index), [1, 2, 3])
+})
+
+test('dual MRI chooses a useful slice in each orientation without dropping the weaker direction', () => {
+  const records = [
+    { orientation: 'Axial' as const, slice_index: 91, pixel_counts: { '6': 400, '16': 500 } },
+    { orientation: 'Coronal' as const, slice_index: 161, pixel_counts: { '6': 20, '16': 30 } },
+    { orientation: 'Coronal' as const, slice_index: 171, pixel_counts: { '6': 1, '16': 200 } },
+  ]
+  assert.deepEqual(pairedSlices(records, 6, 16).map(r => [r.orientation, r.slice_index]), [['Axial', 91], ['Coronal', 161]])
+  assert.deepEqual(records.map(r => r.slice_index), [91, 161, 171])
+  assert.throws(() => pairedSlices(records.slice(0, 1), 6, 16), /Coronal/)
 })
 
 test('spatial points preserve image left/right and mask IDs; bounds use all pixels', () => {

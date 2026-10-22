@@ -185,7 +185,6 @@
   align-items:center;
   justify-content:space-between;
   gap:16px;
-  border-top:1px solid #4584ab1f;
 }
 .shell-actions {
   display:flex;
