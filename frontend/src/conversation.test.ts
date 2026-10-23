@@ -2,9 +2,39 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { checkedReply, viewSelection, pending, interfaceState, correlationLabel } from './conversation.ts'
 import type { AIReply, LocalResult } from './conversation.ts'
+import { briefingFromResults, previewKind, briefingStageAt, briefingTimeline } from './briefing.ts'
 
 const result = (tool: string, parameters: Record<string, unknown>, data = {}): LocalResult => ({ result_id: tool, tool, parameters, data: { analysis: tool, dataset_version: 'v', ...data } })
 const reply = (...results: LocalResult[]): AIReply => ({ status: 'ok', model_acknowledgement: '완료', results, warning: null })
+
+test('cinematic briefing progresses center, three columns, hold, then dock without premature unlock', () => {
+  assert.equal(briefingStageAt(0), 'weather')
+  assert.equal(briefingStageAt(2799), 'weather')
+  assert.equal(briefingStageAt(2800), 'classes')
+  assert.equal(briefingStageAt(5600), 'tasks')
+  assert.equal(briefingStageAt(8399), 'tasks')
+  assert.equal(briefingStageAt(8400), 'overview')
+  assert.equal(briefingStageAt(10400), 'docking')
+  assert.equal(briefingStageAt(11399), 'docking')
+  assert.equal(briefingStageAt(11400), 'docked')
+  assert.equal(briefingStageAt(0, false, true), 'docked')
+  assert.equal(briefingStageAt(2800, true), 'docking')
+  assert.equal(briefingStageAt(3800, true), 'docked')
+  assert.ok(!briefingTimeline(true).some(step => step.phase === 'classes' || step.phase === 'overview'))
+})
+
+test('briefing routes to home cards without brain selection or dataset version', () => {
+  const data = { kind: 'briefing', preview: true, date: '2026-10-23', classes: [], tasks: [],
+    weather: { status: 'not_configured', location: '춘천', current: null, hourly: [] } }
+  const r: LocalResult = { result_id: 'brief', tool: 'get_daily_briefing', parameters: {}, data }
+  const value = checkedReply(reply(r), 'v')
+  assert.equal(viewSelection(value), null)
+  assert.equal(briefingFromResults(value.results)?.preview, true)
+  assert.equal(previewKind('hey NERVIS 오늘 할 일 알려줘'), 'briefing')
+  assert.equal(previewKind('오늘 날씨 알려줘'), 'weather')
+  assert.equal(previewKind('전전두피질 분석해줘'), null)
+  assert.throws(() => checkedReply(reply({ ...r, data: { ...data, tasks: [{ title: null }] } }), 'v'))
+})
 
 test('single-region analysis preserves the explicit side and range without adding a partner', () => {
   const comparison = { regions: [{ label_id: 13 }], samples: [51], zscore: [[0]], correlation: null }

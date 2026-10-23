@@ -1,5 +1,7 @@
 """BAZE tool calling with bounded test mode and an allowlisted summary boundary."""
 from dataclasses import dataclass, field
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import json
 import math
 import os
@@ -15,6 +17,8 @@ from pydantic import Field, ValidationError
 
 from backend import analysis
 from backend.ai_facts import summary_facts
+from backend.briefing import BriefingRequest, briefing_facts
+from fastapi.encoders import jsonable_encoder
 from backend.schemas import (RequestModel, RegionId, SampleRange, TimeseriesRequest,
                              CompareRequest, DetailedRequest, PairsRequest, WindowsRequest, RegionAnalysisRequest)
 
@@ -137,6 +141,7 @@ class ChatRequest(RequestModel):
 
 
 TOOL_MODELS = {
+    "get_daily_briefing": BriefingRequest, "get_weather": BriefingRequest,
     "get_dataset_summary": RequestModel, "get_region_info": RegionRequest,
     "get_timeseries": TimeseriesRequest, "compare_regions": CompareRequest,
     "find_similar_pairs": PairsRequest, "analyze_pair_over_windows": WindowsRequest,
@@ -145,6 +150,8 @@ TOOL_MODELS = {
     "analyze_region": RegionAnalysisRequest,
 }
 TOOL_DESCRIPTIONS = {
+    "get_daily_briefing": "Read daily classes, pending tasks and weather. Use for 오늘 할 일 알려줘/오늘 일정/브리핑; this is NOT brain analysis. No writes.",
+    "get_weather": "Read location weather only. Empty location uses configured default; dates are YYYY-MM-DD. No brain screen change.",
     "get_dataset_summary": "Inspect dataset structure and units locally.",
     "get_region_info": "Inspect one region's structural measurements locally.",
     "analyze_region": "Analyze ONE region: structure, signal statistics and major sample points. Default for a single-region analysis request, including explicit region IDs.",
@@ -157,7 +164,15 @@ TOOL_DESCRIPTIONS = {
 }
 TOOLS = [{"type": "function", "name": name, "description": TOOL_DESCRIPTIONS[name],
           "parameters": model.model_json_schema(), "strict": False} for name, model in TOOL_MODELS.items()]
-INSTRUCTIONS = """You are NERVIS, a Korean interface to local brain-data analysis tools.
+INSTRUCTIONS = """You are NERVIS, a Korean interface to brain analysis and daily briefing tools.
+For today's tasks/schedule/briefing, call get_daily_briefing, not brain analysis tools.
+For weather alone, call get_weather. A current brain selection does not imply a brain request.
+Today's date/timezone are supplied in the command packet. Do not invent classes, tasks or weather.
+These planner tools are read-only. For requests to register/complete/edit tasks explain that writes
+are not connected yet; never claim to have saved them. No voice or wake word is connected yet.
+For briefings, explain the weather, classes and important pending deadlines naturally in Korean.
+Use their actual date and timezone; distinguish no entries from unavailable DB/weather.
+Say when lists are truncated. Do not use brain terminology for planner/weather results.
 Choose tools from the actual command, never simulate results. Left region IDs 1..10:
 1 전전두피질, 2 운동·운동전피질, 3 체성감각피질, 4 후두정피질, 5 상측두피질,
 6 중·하측두피질, 7 내측측두피질, 8 후두·시각피질, 9 대상피질, 10 섬엽피질.
@@ -255,7 +270,7 @@ class AnalysisAI:
     def __init__(self, gateway: Gateway):
         self.gateway, self.busy = gateway, Lock()
 
-    def run(self, data, command: str, context: dict):
+    def run(self, data, command: str, context: dict, *, services=None):
         body = ChatRequest(command=command, context=context)
         if not body.command.strip():
             raise AIError("empty_command", 422)
@@ -264,7 +279,9 @@ class AnalysisAI:
         before = self.gateway.used
         try:
             inputs = [{"role": "user", "content": json.dumps(
-                {"command": body.command, "context": body.context.model_dump()}, ensure_ascii=False)}]
+                {"command": body.command, "context": body.context.model_dump(),
+                 "today": datetime.now(ZoneInfo('Asia/Seoul')).date().isoformat(),
+                 "timezone":"Asia/Seoul"}, ensure_ascii=False)}]
             request = {"model": self.gateway.settings.model, "instructions": INSTRUCTIONS,
                        "input": inputs, "tools": TOOLS, "parallel_tool_calls": False,
                        "max_output_tokens": 512, "store": False}
@@ -290,11 +307,16 @@ class AnalysisAI:
                 ids.add(call_id); validated.append((name, parameters, call_id))
             results, feedback, fact_ids = [], [], set()
             for name, parameters, call_id in validated:
-                result = getattr(analysis, name)(data, **parameters)
+                if name in ('get_daily_briefing','get_weather'):
+                    if not services or name not in services:
+                        raise AIError('briefing_service_unavailable',503)
+                    result = jsonable_encoder(services[name](**parameters))
+                else:
+                    result = getattr(analysis, name)(data, **parameters)
                 if name == 'analyze_regions_detailed':
                     parameters = {**parameters, 'window': result['parameters']['window'], 'step': result['parameters']['step']}
                 results.append({"result_id": uuid4().hex, "tool": name, "parameters": parameters, "data": result})
-                summary = summary_facts(name, result, parameters, call_id)
+                summary = briefing_facts(name,result,call_id) if name in ('get_daily_briefing','get_weather') else summary_facts(name, result, parameters, call_id)
                 fact_ids.update(summary['facts'])
                 feedback.append({"type": "function_call_output", "call_id": call_id,
                                  "output": json.dumps(summary, ensure_ascii=False, allow_nan=False)})

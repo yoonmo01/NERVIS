@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import CoreScene from './CoreScene.tsx'
 import AnalysisView from './AnalysisView.tsx'
+import BriefingCards from './BriefingCards.tsx'
+import { briefingFromResults, previewKind } from './briefing.ts'
+import type { Briefing } from './briefing.ts'
 import { api, ApiError } from './api.ts'
 import type { Region, Summary } from './api.ts'
 import { INTRO, introStage, toggleComposer } from './model.ts'
@@ -32,6 +35,13 @@ export default function App() {
   const [explored, setExplored] = useState(false)
   const [panel, setPanel] = useState<ComposerPanel>('text')
   const [draft, setDraft] = useState('')
+  const [briefingPreview, setBriefingPreview] = useState(false)
+  const [briefingCards, setBriefingCards] = useState<{ id: number; value: Briefing } | null>(null)
+  const cardsFlight = useRef(false)
+  const onCardsReady = useCallback(() => {
+    if (!cardsFlight.current) return
+    cardsFlight.current = false; flight.current = false; setPhase('complete')
+  }, [])
   const [connection, setConnection] = useState<'loading' | 'ready' | 'error'>('loading')
   const [data, setData] = useState<{ regions: Region[]; summary: Summary } | null>(null)
   const [connectionError, setConnectionError] = useState('')
@@ -85,19 +95,33 @@ export default function App() {
     setStageRequest({ id, selection }); setExplored(true); setView('analysis'); setPanel(null); setPhase('applying')
   }
   const send = async () => {
-    if (flight.current || locked || !aiStatus?.enabled || aiStatus.busy || !draft.trim() || !data) return
+    if (flight.current || locked || (!briefingPreview && (!aiStatus?.enabled || aiStatus.busy)) || !draft.trim() || !data) return
     flight.current = true; expectedStage.current = null
     const submitted = draft.trim(), current = new AbortController()
     controller.current = current
     setCommand(submitted); setReply(null); setRequestError(''); setPhase('requesting'); setResultOpen(true); setAnalysisTab('response')
+    setBriefingCards(null); cardsFlight.current = false
     const timeout = setTimeout(() => current.abort(), 70000)
     try {
-      const response = checkedReply(await api<AIReply>('/api/ai/chat', current.signal,
-        { command: submitted, context: context.current }), data.summary.dataset_version)
+      let packet: AIReply
+      if (briefingPreview) {
+        const kind = previewKind(submitted)
+        if (!kind) throw new Error('더미 미리보기에서는 “오늘 할 일 알려줘” 또는 “오늘 날씨 알려줘”를 입력해 주세요. 분석은 미리보기를 끄고 요청하세요.')
+        const value = await api<Briefing>('/api/briefing/preview', current.signal)
+        packet = { status: 'ok', warning: null, model_acknowledgement: kind === 'weather' ? '날씨 카드의 더미 미리보기입니다.' : '더미 브리핑 미리보기입니다. 날씨, 오늘 수업과 해야 할 일을 순서대로 정리했습니다.',
+          results: [{ result_id: `preview-${++sequence.current}`, tool: kind === 'briefing' ? 'get_daily_briefing' : 'get_weather', parameters: {},
+            data: kind === 'briefing' ? value as unknown as Record<string, unknown> : { ...value.weather, kind: 'weather', preview: true } }] }
+      } else packet = await api<AIReply>('/api/ai/chat', current.signal, { command: submitted, context: context.current })
+      const response = checkedReply(packet, data.summary.dataset_version)
       if (!mounted.current) return
       const selection = viewSelection(response)
+      const briefing = briefingFromResults(response.results)
       setReply(response); setDraft('')
       if (selection) applySelection(selection)
+      else if (briefing) {
+        setBriefingCards({ id: ++sequence.current, value: briefing }); cardsFlight.current = true
+        setView('home'); setPanel('text'); setPhase('applying')
+      }
       else { flight.current = false; setPhase('complete') }
     } catch (error) {
       if (!mounted.current) return
@@ -146,8 +170,8 @@ export default function App() {
   const restart = () => { home(); setSkipped(false); setReplay(v => v + 1) }
   const ready = stage === 'ready'
   const locked = !ready || audio.active || pending(phase) || (view === 'analysis' && analysisBusy)
-  const canSend = !locked && connection === 'ready' && !!aiStatus?.enabled && !aiStatus.busy
-  const inputStatus = !aiStatus ? 'AI 서버 연결을 확인해 주세요.' : aiStatus.busy ? '이전 요청을 처리 중입니다.' : !aiStatus.enabled ? 'AI가 비활성 상태입니다. 서버 설정을 확인해 주세요.' : ''
+  const canSend = !locked && connection === 'ready' && (briefingPreview || (!!aiStatus?.enabled && !aiStatus.busy))
+  const inputStatus = briefingPreview ? '더미 미리보기 · “오늘 할 일 알려줘” · AI 호출·DB 저장 없음' : !aiStatus ? 'AI 서버 연결을 확인해 주세요.' : aiStatus.busy ? '이전 요청을 처리 중입니다.' : !aiStatus.enabled ? 'AI가 비활성 상태입니다. 서버 설정을 확인해 주세요.' : ''
   const corePhase = phase === 'complete' && reply?.status === 'partial' ? 'error' : phase
   const coreState = interfaceState(corePhase !== 'error' && corePhase !== 'requesting' && view === 'analysis' && analysisBusy ? 'applying' : corePhase, connection !== 'error', !!aiStatus?.enabled, !!aiStatus?.busy, audio.active)
   const stateLabels = { standby: 'STANDBY', processing: 'PROCESSING', analyzing: 'ANALYZING', error: 'ERROR', paused: 'PAUSED', preview: 'AUDIO PREVIEW' }
@@ -155,9 +179,10 @@ export default function App() {
   const resultPanel = phase === 'idle' ? null : <ConversationPanel phase={phase} command={command} reply={reply} error={requestError} regions={data?.regions ?? []} locked={locked} docked={view === 'analysis'}
     onSelect={selectResult}
     onClose={() => { if (!flight.current) setResultOpen(false) }} />
-  const calculations = reply?.results.length ? <CalculationResults reply={reply} regions={data?.regions ?? []} locked={locked} onSelect={selectResult} /> : null
+  const calculationReply = reply ? { ...reply, results: reply.results.filter(r => r.tool !== 'get_daily_briefing' && r.tool !== 'get_weather') } : null
+  const calculations = calculationReply?.results.length ? <CalculationResults reply={calculationReply} regions={data?.regions ?? []} locked={locked} onSelect={selectResult} /> : null
 
-  return <div className={`app app--${stage} app--${view}${panel ? ' app--composer-open' : ''}${audio.active ? ' app--preview' : ''}`}>
+  return <div className={`app app--${stage} app--${view}${briefingCards ? ' has-briefing' : ''}${briefingCards && phase === 'applying' ? ' briefing-presenting' : ''}${panel ? ' app--composer-open' : ''}${audio.active ? ' app--preview' : ''}`}>
     <div className="background-grid" aria-hidden="true" />
     <header className="interface-header">
       <div className="brand"><h1>NERVIS</h1><span>NEURAL DATA EXPLORER</span></div>
@@ -186,6 +211,8 @@ export default function App() {
     </main>
 
     <div className={`common-interface${ready ? ' is-ready' : ''}`} inert={!ready}>
+      {ready && view === 'home' && <label className="briefing-preview-control"><input type="checkbox" aria-label="더미 브리핑 미리보기" checked={briefingPreview} disabled={locked} onChange={e => setBriefingPreview(e.target.checked)} />더미 미리보기</label>}
+      {ready && view === 'home' && briefingCards && <BriefingCards key={briefingCards.id} value={briefingCards.value} reduced={reduced} onReady={onCardsReady} />}
       {view === 'home' && resultOpen && resultPanel}
       {view === 'home' && !resultOpen && resultPanel && <button className="result-reopen" onClick={() => setResultOpen(true)}>응답 다시 열기</button>}
       <Composer canSend={canSend} status={inputStatus} onSend={() => { void send() }} panel={panel} draft={draft} onDraft={setDraft} closable={view === 'analysis' || panel === 'voice'} locked={locked}

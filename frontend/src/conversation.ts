@@ -1,6 +1,7 @@
 import type { Comparison, Slice, WindowResult } from './api.ts'
 import type { StageSelection } from './stageData.ts'
 import type { CoreState } from './model.ts'
+import { checkBriefing } from './briefing.ts'
 
 export type CommandPhase = 'idle' | 'requesting' | 'applying' | 'complete' | 'error'
 export interface AIStatus { enabled: boolean; model: string; remaining_process_requests: number | null; busy: boolean }
@@ -35,8 +36,9 @@ export function checkedReply(value: AIReply, version: string): AIReply {
       !(value.model_acknowledgement === null || typeof value.model_acknowledgement === 'string')) throw new Error('AI 응답 형식이 올바르지 않습니다.')
   const ids = new Set<string>()
   for (const result of value.results) {
-    if (!result || typeof result.result_id !== 'string' || ids.has(result.result_id) || !toolNames.includes(result.tool) ||
-        !result.parameters || !result.data || result.data.analysis !== result.tool || result.data.dataset_version !== version) throw new Error('분석 결과의 도구 또는 데이터 버전이 일치하지 않습니다.')
+    if (!result || typeof result.result_id !== 'string' || ids.has(result.result_id) || !result.parameters || !result.data) throw new Error('결과 형식이 올바르지 않습니다.')
+    if (result.tool === 'get_daily_briefing' || result.tool === 'get_weather') checkBriefing(result.data, result.tool)
+    else if (!toolNames.includes(result.tool) || result.data.analysis !== result.tool || result.data.dataset_version !== version) throw new Error('분석 결과의 도구 또는 데이터 버전이 일치하지 않습니다.')
     ids.add(result.result_id)
   }
   return value

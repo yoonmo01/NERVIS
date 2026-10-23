@@ -21,6 +21,14 @@
 
 ## 현재 작업 기준
 
+- 2026-10-23 공통 명령 브리핑: `docs/BRIEFING_FLOW.md`가 최신 UI 기준이다. 수동 날씨 카드 제거, get_daily_briefing/get_weather 읽기 도구를 기존 AI 루프에 연결, 실제 결과에 따라 홈 카드/분석 화면 분기. 홈 '더미 미리보기'는 수업·할 일·날씨 모두 합성이며 GET /api/briefing/preview만 사용하고 외부 호출·DB 쓰기 없음. 일정 요약은 선택 필드만 모델에 전송한다. 자연어 일정 쓰기·대화 기억·STT/TTS는 아직 미연결. 실계정 시험 승인과 .env 활성화는 계속 별개다.
+
+- 2026-10-23 날씨 앱 연결: `backend/weather.py`, `docs/WEATHER.md`를 따른다. GET /api/weather, GET /api/briefing 날씨와 홈 수동 날씨 카드를 연결했다. 서버의 NERVIS_KMA_API_KEY 사용, 기본 춘천/명시 지원 지역 우선, 성공10분·실패1분 캐시, 자동 재시도 없음. 최초 지원 지역8개 외 이름은 unknown_location이며 춘천으로 대체하지 않는다. 기상청 추가 실조회는 이번 구현 검증2회 사용. 아래 API항목의 not_connected는 과거 상태다. 자연어 날씨·일정 도구·관리 화면·음성은 미연결이다.
+
+- 2026-10-23 일정 API 연결: `backend/planner.py`, `planner_schemas.py`, `planner_api.py`, `docs/DATABASE.md`를 따른다. 로컬 PostgreSQL 수업/시간/할 일 CRUD, 일괄 등록, Idempotency-Key 기반 중복 방지용 내부 api_requests 테이블, 오늘 일정 조회를 추가했다. DB는 요청 시 연결하므로 중단돼도 뇌 분석은 유지한다. GET /api/briefing 날씨는 not_connected이며 추정하지 않는다. UI·AI 일정 도구·개인 일정 외부 전송·날씨 실조회·대화 기억·음성은 아직 미연결이다. 아래 DB 기반 구축 항목의 API 미구현은 과거 상태다.
+
+- 2026-10-23 DB 기반 구축: 사용자 승인으로 DB 보류 중 일정 저장 부분만 해제했다. `compose.yaml`, `database/migrations/001_initial.sql`, `docs/DATABASE.md`를 따른다. Docker PostgreSQL에 courses/class_meetings/tasks만 생성하며 기존 뇌 데이터는 옮기지 않는다. 비밀번호는 Git 제외 `.env.database`에 보관한다. DB CRUD API·AI 일정 도구·브리핑·대화 기억·음성·원격 배포는 아직 미구현이다. 사용자에게 합의받은 기본 시간대는 Asia/Seoul, 날씨 위치는 명시 요청 우선/없으면 춘천이다.
+
 - 2026-10-23 후속 구현: `docs/AI_TOOLS.md` 현재 계약이 아래 과거 상태보다 우선한다. 상세 복합 도구/요약 사실 기반 설명/결과·MRI 탭/공통 코어 상태를 추가했다. 사용자는 BAZE로 계산 요약 수치·영역/범위·단위·정규화·계산 불가 사유·상위 후보·PCA/스펙트럼 요약 전송을 승인했다. 원시 이미지·마스크·전체 시계열·파일 경로·키 전송은 계속 금지한다. 일반 앱은 AI_ENABLED=true로 호출 횟수 제한 없이 활성화하며, 미설정 시 기존 MAX_REQUESTS 0..10을 유지한다. 개발자 실계정 시험 승인은 별개로 유지한다. 실제 .env/실행 서버는 임의 활성화하지 않는다. DB·대화 이력/요약·Docker/배포·음성은 이번 범위에서 보류한다. 새 프로토콜의 실제 API 호환성/응답 품질은 미검증이다.
 
 

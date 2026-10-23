@@ -1,5 +1,6 @@
 """Local data API and explicitly budgeted, opt-in BAZE analysis commands."""
 from contextlib import asynccontextmanager
+from datetime import date as Date
 from pathlib import Path
 from typing import Annotated, Literal
 from threading import Lock
@@ -13,6 +14,9 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from backend import analysis
 from backend.ai import AIError, AnalysisAI, ChatRequest, Gateway, Settings
 from backend.data import Dataset, load_dataset
+from backend.planner import PlannerError
+from backend.planner_api import router as planner_router
+from backend.planner_api import briefing_result, get_weather
 from backend.schemas import CompareRequest, DetailedRequest, PairsRequest, TimeseriesRequest, WindowsRequest, RegionAnalysisRequest
 from scripts.prepare_app_data import fingerprint
 
@@ -32,7 +36,8 @@ def get_dataset(request: Request) -> Dataset:
 Data = Annotated[Dataset, Depends(get_dataset)]
 
 
-def create_app(package_dir: Path = DEFAULT_PACKAGE, *, ai_service: AnalysisAI | None = None) -> FastAPI:
+def create_app(package_dir: Path = DEFAULT_PACKAGE, *, ai_service: AnalysisAI | None = None,
+               planner_store=None, weather_service=None) -> FastAPI:
     package = Path(package_dir).resolve()
     ai_init_lock = Lock()
 
@@ -44,18 +49,28 @@ def create_app(package_dir: Path = DEFAULT_PACKAGE, *, ai_service: AnalysisAI | 
             raise RuntimeError("App data package failed validation; run the offline verifier") from exc
         try:
             application.state.ai_service = ai_service
+            application.state.planner_store = planner_store
+            application.state.weather_service = weather_service
             yield
         finally:
             del application.state.dataset
             del application.state.ai_service
+            del application.state.planner_store
+            del application.state.weather_service
 
-    application = FastAPI(title="NERVIS Local Analysis API", version="0.1.0", lifespan=lifespan,
-                          description="Local sample-index analysis. AI commands are disabled until an explicit request budget is configured. No voice or sessions.",
+    application = FastAPI(title="NERVIS Local API", version="0.2.0", lifespan=lifespan,
+                          description="Local brain analysis and persistent planner. AI commands require explicit activation. No voice or login.",
                           redoc_url=None)
     application.add_middleware(CORSMiddleware,
                                allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-                               allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
+                               allow_methods=["GET", "POST", "PATCH", "DELETE"],
+                               allow_headers=["Content-Type", "Idempotency-Key"])
     application.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost"])
+    application.include_router(planner_router)
+
+    @application.exception_handler(PlannerError)
+    async def invalid_planner(request, exc):
+        return JSONResponse(status_code=exc.status, content={"detail": exc.code})
 
     @application.exception_handler(RequestValidationError)
     async def invalid_request(request, exc):
@@ -94,7 +109,10 @@ def create_app(package_dir: Path = DEFAULT_PACKAGE, *, ai_service: AnalysisAI | 
                                      "http://localhost:8000", "http://127.0.0.1:8000"):
             raise HTTPException(403, "AI origin is not allowed")
         service = ai_instance(request)
-        return service.run(data, body.command, body.context.model_dump())
+        return service.run(data, body.command, body.context.model_dump(), services={
+            'get_daily_briefing':lambda **p:briefing_result(request,**p),
+            'get_weather':lambda date=None,location=None:{'kind':'weather',**get_weather(request).get(
+                location,Date.fromisoformat(date) if date else None)}})
 
     @application.get("/api/health", tags=["dataset"])
     def health(data: Data):

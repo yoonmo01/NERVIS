@@ -129,12 +129,14 @@ export default function ConversationPanel({ phase, command, reply, error, region
   onSelect: (selection: StageSelection) => void; onClose: () => void; docked?: boolean;
 }) {
   if (phase === 'idle') return null
+  const briefing = reply?.results.some(r => r.tool === 'get_daily_briefing' || r.tool === 'get_weather')
+  const analysisReply = reply ? { ...reply, results: reply.results.filter(r => r.tool !== 'get_daily_briefing' && r.tool !== 'get_weather') } : null
   return <aside className="conversation-result" aria-label="NERVIS 요청과 결과" aria-busy={locked}>
     <div className="conversation-result-heading"><span>NERVIS</span>{!docked && <button disabled={locked} onClick={onClose} aria-label="대화 결과 닫기">×</button>}</div>
     <p className="submitted-command">{command}</p>
-    <p role={error ? 'alert' : 'status'} className={`request-state${error ? ' has-error' : ''}`}>{error || (phase === 'requesting' ? '요청하신 내용을 분석하고 있어요.' : phase === 'applying' ? '분석 결과를 정리하고 있어요.' : reply?.status === 'partial' ? '계산은 완료했지만 설명을 마무리하지 못했어요. 계산 결과를 확인해 주세요.' : reply?.results.length ? '분석 결과가 준비됐어요.' : '답변이 준비됐어요.')}</p>
+    <p role={error ? 'alert' : 'status'} className={`request-state${error ? ' has-error' : ''}`}>{error || (phase === 'requesting' ? '요청하신 내용을 확인하고 있어요.' : phase === 'applying' ? '결과를 화면에 정리하고 있어요.' : reply?.status === 'partial' ? briefing ? '조회 결과는 받았지만 설명을 마무리하지 못했어요.' : '계산은 완료했지만 설명을 마무리하지 못했어요. 계산 결과를 확인해 주세요.' : reply?.results.length ? briefing ? '브리핑이 준비됐어요.' : '분석 결과가 준비됐어요.' : '답변이 준비됐어요.')}</p>
     {reply?.model_acknowledgement && phase !== 'requesting' && <div className="model-acknowledgement"><Markdown skipHtml disallowedElements={['img', 'a']} unwrapDisallowed>{reply.model_acknowledgement}</Markdown></div>}
     {reply?.warning && <p className="result-warning" role="status">{aiErrorMessage(reply.warning)}</p>}
-    {!docked && reply && reply.results.length > 0 && <details className="local-results" open={!reply.model_acknowledgement || reply.results.some(r => ['find_similar_pairs', 'get_dataset_summary', 'get_timeseries', 'analyze_regions_detailed'].includes(r.tool))}><summary>계산 결과</summary><CalculationResults reply={reply} regions={regions} locked={locked} onSelect={onSelect} /></details>}
+    {!docked && analysisReply && analysisReply.results.length > 0 && <details className="local-results" open={!analysisReply.model_acknowledgement || analysisReply.results.some(r => ['find_similar_pairs', 'get_dataset_summary', 'get_timeseries', 'analyze_regions_detailed'].includes(r.tool))}><summary>계산 결과</summary><CalculationResults reply={analysisReply} regions={regions} locked={locked} onSelect={onSelect} /></details>}
   </aside>
 }

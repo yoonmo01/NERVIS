@@ -1,0 +1,26 @@
+name: nervis
+
+services:
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nervis
+      POSTGRES_USER: nervis
+      POSTGRES_PASSWORD: ${NERVIS_DB_PASSWORD:?Set NERVIS_DB_PASSWORD in .env.database}
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
+    ports:
+      - "127.0.0.1:${NERVIS_DB_PORT:-15432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./database/migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
+      - ./database/migrations/002_api_requests.sql:/docker-entrypoint-initdb.d/002_api_requests.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nervis -d nervis"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  postgres_data:
