@@ -1,8 +1,8 @@
 {
   "schema": "nervis-hologram-render-v1",
   "glb": "nervis-hologram-brain.glb",
-  "mesh_count": 22,
-  "selection": "Keep both Cortex_Shell meshes visible; show only selected ROI label_ids. Hide unselected ROI meshes. Do not show all 20 on load.",
+  "mesh_count": 24,
+  "selection": "Keep four context nodes visible with no signal; show selected ROI IDs only.",
   "fallback_materials": "Basic translucent glTF PBR only; Blender compositor/Fresnel network is NOT embedded. Use supplied GLSL reference and tune in target renderer.",
   "attributes": {
     "_nervis_micro": "float [0,1], baked fine surface variation; emission *= .48+1.45*micro, alpha *= .8+.65*micro",
@@ -81,7 +81,8 @@
     "included_in_glb": false,
     "blender_preview_counts": {
       "per_shell": 8500,
-      "per_roi": 1800
+      "per_roi": 1800,
+      "per_context": 1200
     },
     "reproduction": "Sample current visible surface; use seeded sampling, small additive points, depth-tested. Do not recreate voxel masks or use patient inputs."
   },
@@ -92,5 +93,11 @@
     "Transparent surfaces can require explicit front/back passes and sorting; verify 360-degree orbit.",
     "Default displayed example: IDs 2 and 12, strength .6.",
     "GLSL reference is a porting reference, not a tested frontend integration."
+  ],
+  "context_nodes": [
+    "Cortex_Shell_L",
+    "Cortex_Shell_R",
+    "Cerebellum_Context",
+    "Brainstem_Context"
   ]
 }

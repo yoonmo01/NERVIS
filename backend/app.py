@@ -13,7 +13,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from backend import analysis
 from backend.ai import AIError, AnalysisAI, ChatRequest, Gateway, Settings
 from backend.data import Dataset, load_dataset
-from backend.schemas import CompareRequest, DetailedRequest, PairsRequest, TimeseriesRequest, WindowsRequest
+from backend.schemas import CompareRequest, DetailedRequest, PairsRequest, TimeseriesRequest, WindowsRequest, RegionAnalysisRequest
 from scripts.prepare_app_data import fingerprint
 
 
@@ -136,6 +136,10 @@ def create_app(package_dir: Path = DEFAULT_PACKAGE, *, ai_service: AnalysisAI | 
     @application.post("/api/analysis/detailed", tags=["analysis"])
     def detailed(body: DetailedRequest, data: Data):
         return analysis.analyze_regions_detailed(data, **body.model_dump())
+
+    @application.post("/api/analysis/region", tags=["analysis"])
+    def analyze_region(body: RegionAnalysisRequest, data: Data):
+        return analysis.analyze_region(data, **body.model_dump())
 
     @application.get("/api/slices/{orientation}/{slice_index}/{kind}", tags=["images"])
     def image(orientation: Orientation, slice_index: Annotated[int, ApiPath(ge=0, le=999)],

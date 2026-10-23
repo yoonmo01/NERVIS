@@ -7,21 +7,21 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
-import brainUrl from './assets/nervis-hologram-brain.glb?url'
+import brainUrl from './assets/nervis-hologram-brain-narrow-gap.glb?url'
 import vertex from './assets/hologram.vert.glsl?raw'
 import fragment from './assets/hologram.frag.glsl?raw'
-import contract from './assets/hologram-render-contract.json'
-import regionMap from './assets/hologram-region-map.json'
+import contract from './assets/hologram-render-contract-narrow-gap.json'
+import regionMap from './assets/hologram-region-map-narrow-gap.json'
 import type { StageData } from './stageData.ts'
 import { signalStrength } from './analysisModel.ts'
-import { cameraPoseBetween, cameraPresets, sampleSurfacePoints } from './hologramModel.ts'
+import { cameraPoseBetween, cameraPresets, sampleSurfacePoints, validBrainLayout } from './hologramModel.ts'
 
 import type { CameraView } from './hologramModel.ts'
 
 const pointVertex = `uniform float size; void main(){vec4 p=modelViewMatrix*vec4(position,1.); gl_Position=projectionMatrix*p; gl_PointSize=clamp(isOrthographic?size:size*5./-p.z,.6,4.);}`
 const pointFragment = `uniform vec3 tint; uniform float strength; void main(){float r=length(gl_PointCoord-.5)*2.; if(r>1.)discard; gl_FragColor=vec4(tint*strength,pow(1.-r,1.7)*.25);}`
 
-function Surface({ geometry, id, value }: { geometry: BufferGeometry; id?: number; value: number }) {
+function Surface({ geometry, id, value, pointCount }: { geometry: BufferGeometry; id?: number; value: number; pointCount: number }) {
   const surface = useRef<ShaderMaterial>(null), dust = useRef<ShaderMaterial>(null)
   const selected = id !== undefined
   const color = selected ? id <= 10 ? contract.colors_linear.left : contract.colors_linear.right : contract.colors_linear.cortex
@@ -29,9 +29,9 @@ function Surface({ geometry, id, value }: { geometry: BufferGeometry; id?: numbe
   const pointUniforms = useMemo(() => ({ tint: { value: new Color(...(selected ? color : [.5, .78, 1]) as [number, number, number]) }, strength: { value: selected ? 1.1 : 2.5 }, size: { value: selected ? 1.2 : .85 } }), [color, selected])
   const particles = useMemo(() => {
     const positions = geometry.getAttribute('position')
-    const points = sampleSurfacePoints(positions.array, selected ? 1800 : 8500)
+    const points = sampleSurfacePoints(positions.array, pointCount)
     const result = new BufferGeometry(); result.setAttribute('position', new BufferAttribute(points, 3)); return result
-  }, [geometry, selected])
+  }, [geometry, pointCount])
   useEffect(() => () => particles.dispose(), [particles])
   useFrame(() => {
     const strength = signalStrength(value)
@@ -66,24 +66,30 @@ export function BrainBloom() {
 export function BrainOrbit({ view, revision, active, reduced, onManual, onHome, onSettled }: { view: CameraView; revision: number; active: boolean; reduced: boolean; onManual: () => void; onHome: () => void; onSettled: () => void }) {
   const { camera, gl, invalidate, size } = useThree()
   const [orbitFrame, setOrbitFrame] = useState(0)
-  const orbit = useRef<OrbitControls | null>(null), fit = useRef(100)
+  const orbit = useRef<OrbitControls | null>(null), fit = useRef(100), roll = useRef(0)
   const transition = useRef<{ from: number[]; up: number[]; zoom: number; elapsed: number } | null>(null)
   useEffect(() => {
     const controls = new OrbitControls(camera, gl.domElement); orbit.current = controls
-    controls.enablePan = false; controls.minDistance = 3; controls.maxDistance = 16
+    controls.rotateSpeed = 1
+    controls.enablePan = false
+    controls.minDistance = 3; controls.maxDistance = 16
     const changed = () => invalidate()
-    const manual = () => { transition.current = null; onManual() }
+    const manual = () => { transition.current = null; gl.domElement.focus({ preventScroll: true }); onManual() }
     controls.addEventListener('change', changed); controls.addEventListener('start', manual)
-    gl.domElement.tabIndex = 0; gl.domElement.setAttribute('aria-label', '3D 뇌 회전: 방향키, 확대: +와 -, 초기화: Home')
+    gl.domElement.tabIndex = 0; gl.domElement.setAttribute('aria-label', '3D 뇌 회전: 방향키, 기울기: Q와 E, 확대: +와 -, 초기화: Home')
     const keyboard = (event: KeyboardEvent) => {
-      if (!controls.enabled || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '-', 'Home'].includes(event.key)) return
+      const tilt = event.code === 'KeyQ' ? 1 : event.code === 'KeyE' ? -1 : 0
+      if (!controls.enabled || event.ctrlKey || event.metaKey || event.altKey || (!tilt && !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '-', 'Home'].includes(event.key))) return
       event.preventDefault(); manual()
       if (event.key === 'Home') { onHome(); return
+      } else if (tilt) {
+        roll.current = (roll.current + tilt * Math.PI / 36) % (2 * Math.PI)
       } else if ((event.key === '+' || event.key === '-') && camera instanceof OrthographicCamera) {
         camera.zoom = Math.max(controls.minZoom, Math.min(controls.maxZoom, camera.zoom * (event.key === '+' ? 1.1 : .9)))
       } else {
-        const axis = event.key === 'ArrowLeft' || event.key === 'ArrowRight' ? camera.up : new Vector3(1, 0, 0).applyQuaternion(camera.quaternion)
-        camera.position.applyAxisAngle(axis, event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? .12 : -.12)
+        const axis = event.key === 'ArrowLeft' || event.key === 'ArrowRight' ? camera.up : new Vector3().crossVectors(camera.up, camera.position).normalize()
+        const angle = event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? .12 : -.12
+        camera.position.applyAxisAngle(axis, angle)
       }
       camera.updateProjectionMatrix(); controls.update(); invalidate()
     }
@@ -97,25 +103,31 @@ export function BrainOrbit({ view, revision, active, reduced, onManual, onHome, 
       if (orbit.current) { orbit.current.minZoom = next * .45; orbit.current.maxZoom = next * 2.5 }
       invalidate()
     }
-  }, [camera, size.height, invalidate, orbitFrame])
+  }, [camera, size.width, size.height, invalidate, orbitFrame])
   useEffect(() => {
     if (orbit.current) orbit.current.enabled = false
-    transition.current = { from: camera.position.toArray(), up: camera.up.toArray(), zoom: camera instanceof OrthographicCamera ? camera.zoom : 1, elapsed: reduced ? .9 : 0 }
+    transition.current = { from: camera.position.toArray(), up: new Vector3(0, 1, 0).applyQuaternion(camera.quaternion).toArray(), zoom: camera instanceof OrthographicCamera ? camera.zoom : 1, elapsed: reduced ? .9 : 0 }
+    roll.current = 0
     invalidate()
   }, [camera, view, revision, reduced, invalidate])
   useEffect(() => { if (orbit.current) orbit.current.enabled = active && !transition.current }, [active, orbitFrame])
   useFrame((_, delta) => {
     const move = transition.current
-    if (!move || !active) return
+    if (!active) return
+    if (!move) {
+      if (orbit.current?.enabled) { orbit.current.update(); camera.rotateZ(roll.current) }
+      return
+    }
     move.elapsed += Math.min(delta, .1)
     const t = Math.min(1, move.elapsed / .9), eased = t * t * (3 - 2 * t), target = cameraPresets[view]
     const pose = cameraPoseBetween(move.from, target.position, eased, move.up, target.up)
     camera.position.copy(pose.position); camera.up.copy(pose.up)
     if (camera instanceof OrthographicCamera) { camera.zoom = move.zoom + (fit.current - move.zoom) * eased; camera.updateProjectionMatrix() }
-    orbit.current?.update(); invalidate()
+    camera.lookAt(0, 0, 0); invalidate()
     if (t === 1) {
+      camera.up.fromArray(target.up)
       transition.current = null
-      // OrbitControls caches camera.up when constructed; rebuild after a preset changes it.
+      // Discard pending drag/zoom deltas when a preset finishes.
       setOrbitFrame(value => value + 1)
       onSettled()
     }
@@ -133,7 +145,7 @@ export default function SchematicBrain({ data, sample, onReady }: { data: StageD
     gltf.scene.traverse(object => {
       if (object instanceof Mesh) output.push({ name: object.name, id: object.userData.label_id, geometry: object.geometry.clone().applyMatrix4(object.matrixWorld) })
     })
-    const invalid = output.length !== 22 || regionMap.regions.some(region => !output.some(mesh => mesh.id === region.label_id && region.glb_nodes.includes(mesh.name))) ||
+    const invalid = !validBrainLayout(output, regionMap.regions) ||
       output.some(mesh => ['_nervis_ridge', '_nervis_edge', '_nervis_context', '_nervis_micro'].some(name => !mesh.geometry.getAttribute(name)))
     if (invalid) { output.forEach(mesh => mesh.geometry.dispose()); throw new Error('홀로그램 모형의 영역·표면 속성을 확인할 수 없습니다.') }
     return output
@@ -142,6 +154,6 @@ export default function SchematicBrain({ data, sample, onReady }: { data: StageD
   return <group>{meshes.map(mesh => {
     const column = data.comparison.regions.findIndex(region => region.label_id === mesh.id)
     if (mesh.id && column < 0) return null
-    return <Surface key={mesh.name} geometry={mesh.geometry} id={mesh.id} value={data.comparison.zscore[sample - data.comparison.samples[0]]?.[column] ?? 0} />
+    return <Surface key={mesh.name} geometry={mesh.geometry} id={mesh.id} pointCount={mesh.id ? 1800 : mesh.name.endsWith('_Context') ? 1200 : 8500} value={data.comparison.zscore[sample - data.comparison.samples[0]]?.[column] ?? 0} />
   })}</group>
 }

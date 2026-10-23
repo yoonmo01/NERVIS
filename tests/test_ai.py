@@ -20,6 +20,20 @@ def response(output, **extra):
 
 
 class AITests(PackageCase):
+    def test_single_region_tool_sends_statistics_but_not_signal_arrays(self):
+        ai = self.make_ai([response([call('analyze_region', {'region_id': 3, 'start': 21, 'end': 70})]),
+            response([{'type': 'message', 'content': [{'type': 'output_text', 'text': json.dumps({
+                'answer': '선택한 영역의 신호 변화와 구조를 확인했습니다.',
+                'used_fact_ids': ['call_1.signal_statistics']})}]}])])
+        result = ai.run(self.load(), '3번 영역을 분석해줘', {'start': 21, 'end': 70})
+        local = result['results'][0]['data']
+        self.assertEqual(local['region']['label_id'], 3)
+        self.assertEqual(local['comparison']['region_ids'], [3])
+        outbound = b''.join(r.content for r in self.requests).decode()
+        self.assertIn('call_1.signal_statistics', outbound)
+        for forbidden in ('"bold": [', '"zscore": [', '"samples": [', '"comparison": {'):
+            self.assertNotIn(forbidden, outbound)
+
     def make_ai(self, packets, budget=2):
         self.requests = []
 

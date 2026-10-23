@@ -1,21 +1,29 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
-import { cameraPresets, cameraPoseBetween, preferredBrainView, sampleSurfacePoints } from './hologramModel.ts'
+import { cameraPresets, cameraPoseBetween, sampleSurfacePoints, validBrainLayout } from './hologramModel.ts'
 
-test('internal cortical regions use an oblique view in either hemisphere', () => {
-  for (let id = 1; id <= 20; id++) {
-    const expected = [7, 9, 10].includes((id - 1) % 10 + 1) ? 'oblique' : 'default'
-    assert.equal(preferredBrainView([id]), expected)
-  }
-  assert.equal(preferredBrainView([2, 20]), 'oblique')
-  assert.equal(preferredBrainView([1, 11]), 'default')
-  assert.equal(preferredBrainView([]), 'default')
+test('brain layout accepts only twenty unique mapped regions and four unlabelled context meshes', () => {
+  const regions = Array.from({ length: 20 }, (_, i) => ({ label_id: i + 1, glb_nodes: ['ROI_' + (i + 1)] }))
+  const context = ['Cortex_Shell_L', 'Cortex_Shell_R', 'Cerebellum_Context', 'Brainstem_Context'].map(name => ({ name }))
+  const nodes = [...context, ...regions.map(r => ({ name: r.glb_nodes[0], id: r.label_id }))]
+  assert.equal(validBrainLayout(nodes, regions), true)
+  assert.equal(validBrainLayout(nodes.slice(1), regions), false)
+  assert.equal(validBrainLayout([...nodes, { name: 'unknown' }], regions), false)
+  assert.equal(validBrainLayout(nodes.map((n, i) => i === 2 ? { ...n, id: 21 } : n), regions), false)
+  assert.equal(validBrainLayout(nodes.map((n, i) => i === 4 ? nodes[5] : n), regions), false)
+  assert.equal(validBrainLayout(nodes.map((n, i) => i === 4 ? { ...n, id: 11 } : n), regions), false)
+  assert.equal(validBrainLayout(nodes.map((n, i) => i === 2 ? { name: 'unknown' } : n), regions), false)
+})
+
+test('internal oblique is the first preset and the former default preset is removed', () => {
+  assert.equal(Object.keys(cameraPresets)[0], 'oblique')
+  assert.equal('default' in cameraPresets, false)
+  assert.deepEqual(cameraPresets.oblique.position, [5.2, 4.2, 4.4])
+  assert.equal(cameraPresets.oblique.label, '기본')
 })
 
 test('camera presets retain anatomical axes and opposite views move around the brain', () => {
-  assert.equal(cameraPresets.default.position[0], 0)
-  assert.ok(cameraPresets.default.position[2] > 0 && cameraPresets.default.position[1] > cameraPresets.default.position[2], 'default view reveals the anterior-posterior silhouette and both hemispheres')
   assert.ok(cameraPresets.front.position[2] > 0)
   assert.ok(cameraPresets.back.position[2] < 0)
   assert.ok(cameraPresets.left.position[0] > 0)
@@ -59,12 +67,14 @@ test('surface particles are deterministic, bounded and do not change model verti
 })
 
 test('hologram delivery has independent 20 ROI nodes and four bounded surface attributes', () => {
-  const buffer = readFileSync(new URL('./assets/nervis-hologram-brain.glb', import.meta.url))
+  const buffer = readFileSync(new URL('./assets/nervis-hologram-brain-narrow-gap.glb', import.meta.url))
   assert.equal(buffer.readUInt32LE(0), 0x46546c67)
   assert.equal(buffer.readUInt32LE(8), buffer.length)
   const doc = JSON.parse(buffer.subarray(20, 20 + buffer.readUInt32LE(12)).toString())
   const binaryStart = 28 + buffer.readUInt32LE(12)
-  assert.equal(doc.meshes.length, 22)
+  assert.equal(doc.meshes.length, 24)
+  const map = JSON.parse(readFileSync(new URL('./assets/hologram-region-map-narrow-gap.json', import.meta.url)).toString())
+  assert.equal(validBrainLayout(doc.nodes.filter((n: { mesh?: number }) => n.mesh !== undefined).map((n: { name: string; extras?: { label_id?: number } }) => ({ name: n.name, id: n.extras?.label_id })), map.regions), true)
   assert.equal(doc.images?.length ?? 0, 0)
   assert.ok(doc.buffers.every((b: { uri?: string }) => !b.uri))
   const ids = doc.nodes.filter((n: { extras?: { label_id?: number } }) => n.extras?.label_id).map((n: { extras: { label_id: number } }) => n.extras.label_id)

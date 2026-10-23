@@ -9,7 +9,8 @@ export interface AIReply { status: 'ok' | 'partial'; model_acknowledgement: stri
 export interface ViewContext { selected_region_ids: number[]; start: number; end: number }
 export interface ViewRequest { id: number; selection: StageSelection }
 
-const toolNames = ['get_dataset_summary', 'get_region_info', 'get_timeseries', 'compare_regions', 'find_similar_pairs', 'analyze_pair_over_windows', 'get_region_slices', 'analyze_regions_detailed']
+const toolNames = ['get_dataset_summary', 'get_region_info', 'get_timeseries', 'compare_regions', 'find_similar_pairs', 'analyze_pair_over_windows', 'get_region_slices', 'analyze_regions_detailed', 'analyze_region']
+
 export function pending(phase: CommandPhase) { return phase === 'requesting' || phase === 'applying' }
 
 export function interfaceState(phase: CommandPhase, connected: boolean, enabled: boolean, busy: boolean, preview = false): CoreState {
@@ -65,6 +66,13 @@ export function viewSelection(reply: AIReply): StageSelection | null {
     }
   }
   if (selection) return selection
+  const single = reply.results.find(r => r.tool === 'analyze_region')
+  if (single) {
+    const start = integer(single.parameters.start ?? 1, 1, 200)
+    return { region: integer(single.parameters.region_id, 1, 20), single: true,
+      start, end: integer(single.parameters.end ?? 200, start, 200),
+      comparison: single.data.comparison as unknown as Comparison }
+  }
   const ranked = reply.results.find(r => r.tool === 'find_similar_pairs')
   if (ranked && Array.isArray(ranked.data.pairs) && ranked.data.pairs.length) {
     const pair = ranked.data.pairs[0] as Record<string, unknown>

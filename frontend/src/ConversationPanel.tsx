@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react'
+import Markdown from 'react-markdown'
 import type { Region } from './api.ts'
 import { regionLabel } from './api.ts'
 import { displayColor } from './brainVisual.ts'
@@ -11,6 +12,7 @@ const titles: Record<string, string> = {
   get_dataset_summary: '데이터 개요', get_region_info: '영역 정보', get_timeseries: '시계열',
   compare_regions: '두 영역 비교', find_similar_pairs: '관계 검색', analyze_pair_over_windows: '구간별 관계', get_region_slices: 'MRI 단면',
   analyze_regions_detailed: '자세한 분석',
+  analyze_region: '영역 분석',
 }
 const number = (value: unknown, digits = 3) => typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString('ko-KR', { maximumFractionDigits: digits }) : '계산 불가'
 
@@ -33,6 +35,7 @@ const metricLabels: Record<string, string> = {
   raw_centered: '원척도 · 평균 제거', within_range_zscore: '구간별 표준화', region_count: '전체 영역 수', constant_region_ids: '상수 신호 영역',
   explained_variance_ratio: '주성분별 설명분산 비율', components: '상위 주성분', component: '주성분 번호', numerical_rank: '유효 주성분 수',
   selected_loadings: '선택 영역의 적재량', top_loadings: '절대 적재량 상위 영역', loading: '적재량',
+  deviation_z: '평소 수준에서 편차가 큰 시점', adjacent_change_z: '이전 샘플보다 변화가 큰 시점',
 }
 const metricText: Record<string, string> = { ok: '계산됨', unavailable: '계산 불가', constant_signal: '상수 신호', all_constant_signals: '모든 신호가 상수', fewer_than_8_samples: '8샘플 미만', fewer_than_4_samples: '겹치는 3샘플 확보에 필요한 길이 부족', numerical_failure: '수치 계산 불가' }
 
@@ -80,12 +83,24 @@ function Result({ result, regions, locked, onSelect }: { result: LocalResult; re
     {result.tool === 'get_region_info' && d.region && typeof d.region === 'object' ? <p>{label(p.region_id)}<br />평균 두께 {number((d.region as Region).thickness_mm)} mm · 회백질 부피 {number((d.region as Region).volume_mm3, 0)} mm³</p> : null}
     {result.tool === 'compare_regions' && <><p>{label(p.region_a)} / {label(p.region_b)}<br />샘플 {String(p.start)}~{String(p.end)} · {p.method === 'spearman' ? 'Spearman ρ' : 'Pearson r'} {number(d.correlation)}</p><StructureTable value={d.structure} /></>}
     {result.tool === 'analyze_regions_detailed' && <><p>{label(p.region_a)} / {label(p.region_b)} · 샘플 {String(p.start)}~{String(p.end)}</p><DetailedResult data={d} regions={regions} /></>}
+    {result.tool === 'analyze_region' && <><p>{label(p.region_id)} · 샘플 {String(p.start)}~{String(p.end)}</p><SingleRegionResult data={d} regions={regions} /></>}
     {result.tool === 'get_region_slices' && <p>{label(p.region_id)} · {String(p.orientation)}<br />추천 단면 {d.recommended_slice && typeof d.recommended_slice === 'object' ? String((d.recommended_slice as { slice_index: number }).slice_index) : '없음'} · 등록 단면 {Array.isArray(d.slices) ? d.slices.length : 0}개</p>}
     {result.tool === 'find_similar_pairs' && <ol className="command-pairs">{rows.map((row, i) => <li key={i}><button disabled={locked} onClick={() => onSelect(pairSelection(row.region_a, row.region_b, p))}>{label(row.region_a)} / {label(row.region_b)}<b>{number(row.correlation)}</b><small>이 쌍 보기 ↗</small></button></li>)}</ol>}
     {result.tool === 'analyze_pair_over_windows' && <><p>{label(p.region_a)} / {label(p.region_b)} · 샘플 {String(p.start)}~{String(p.end)}</p><details><summary>구간별 계산 {rows.length}개</summary><ul>{rows.map((row, i) => <li key={i}>{String(row.start_sample)}~{String(row.end_sample)} · {number(row.correlation)}</li>)}</ul></details></>}
     {result.tool === 'get_timeseries' && <SignalResult result={result} regions={regions} />}
     {d.status === 'unavailable' && <p>선택 구간에서는 상관을 계산할 수 없습니다.</p>}
   </article>
+}
+
+function SingleRegionResult({ data, regions }: { data: Record<string, unknown>; regions: Region[] }) {
+  const [section, setSection] = useState('signal_statistics')
+  const region = data.region as Region | undefined
+  return <>
+    <p>평균 두께 {number(region?.thickness_mm)} mm · 회백질 부피 {number(region?.volume_mm3, 0)} mm³</p>
+    <label className="calculation-picker">분석 항목<select value={section} onChange={e => setSection(e.target.value)}><option value="signal_statistics">신호 분포와 변동</option><option value="major_points">주요 변화 시점</option></select></label>
+    <MetricValues value={data[section]} regions={regions} />
+    <details className="calculation-basis"><summary>계산 기준</summary><p>z-score는 전체 200개 샘플 기준입니다. 주요 시점은 최소 10샘플 간격으로 최대 5개를 선택하며, 변화 시점은 뒤쪽 샘플에 표시합니다. 샘플 간 실제 시간과 BOLD 원척도 단위는 미상입니다.</p></details>
+  </>
 }
 
 function SignalResult({ result, regions }: { result: LocalResult; regions: Region[] }) {
@@ -117,8 +132,8 @@ export default function ConversationPanel({ phase, command, reply, error, region
   return <aside className="conversation-result" aria-label="NERVIS 요청과 결과" aria-busy={locked}>
     <div className="conversation-result-heading"><span>NERVIS</span>{!docked && <button disabled={locked} onClick={onClose} aria-label="대화 결과 닫기">×</button>}</div>
     <p className="submitted-command">{command}</p>
-    <p role={error ? 'alert' : 'status'} className={`request-state${error ? ' has-error' : ''}`}>{error || (phase === 'requesting' ? '명령 해석·로컬 도구 실행 중' : phase === 'applying' ? '분석 완료 · 화면 준비 중' : reply?.status === 'partial' ? '로컬 분석 완료 · 모델의 후속 응답 미완료' : reply?.results.length ? '결과 적용 완료' : '응답 완료')}</p>
-    {reply?.model_acknowledgement && phase !== 'requesting' && <p className="model-acknowledgement">{reply.model_acknowledgement}</p>}
+    <p role={error ? 'alert' : 'status'} className={`request-state${error ? ' has-error' : ''}`}>{error || (phase === 'requesting' ? '요청하신 내용을 분석하고 있어요.' : phase === 'applying' ? '분석 결과를 정리하고 있어요.' : reply?.status === 'partial' ? '계산은 완료했지만 설명을 마무리하지 못했어요. 계산 결과를 확인해 주세요.' : reply?.results.length ? '분석 결과가 준비됐어요.' : '답변이 준비됐어요.')}</p>
+    {reply?.model_acknowledgement && phase !== 'requesting' && <div className="model-acknowledgement"><Markdown skipHtml disallowedElements={['img', 'a']} unwrapDisallowed>{reply.model_acknowledgement}</Markdown></div>}
     {reply?.warning && <p className="result-warning" role="status">{aiErrorMessage(reply.warning)}</p>}
     {!docked && reply && reply.results.length > 0 && <details className="local-results" open={!reply.model_acknowledgement || reply.results.some(r => ['find_similar_pairs', 'get_dataset_summary', 'get_timeseries', 'analyze_regions_detailed'].includes(r.tool))}><summary>계산 결과</summary><CalculationResults reply={reply} regions={regions} locked={locked} onSelect={onSelect} /></details>}
   </aside>

@@ -41,9 +41,12 @@ def summary_facts(tool, result, parameters, call_id):
     elif tool == 'find_similar_pairs':
         add('ranking', {key: result[key] for key in ('candidate_pair_count', 'valid_pair_count')})
         add('top_pairs', result['pairs'][:5])
-    elif tool == 'get_region_info':
+    elif tool in ('get_region_info', 'analyze_region'):
         add('region', {**region_summary(result['region']), **{key: result['region'][key]
             for key in ('thickness_mm', 'volume_mm3')}})
+        if tool == 'analyze_region':
+            for name in ('signal_statistics', 'major_points', 'conditions'):
+                add(name, result[name])
     elif tool == 'get_dataset_summary':
         add('dataset', {key: result[key] for key in ('region_count', 'sample_count', 'slice_count', 'signal_type', 'sample_interval_seconds')})
     elif tool == 'get_timeseries':

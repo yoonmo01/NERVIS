@@ -48,6 +48,10 @@ class CompareRequest(SampleRange):
         return self
 
 
+class RegionAnalysisRequest(SampleRange):
+    region_id: RegionId
+
+
 class PairsRequest(SampleRange):
     method: Method = "pearson"
     scope: Literal["all", "homologous"] = "all"

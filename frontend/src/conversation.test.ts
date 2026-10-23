@@ -6,6 +6,19 @@ import type { AIReply, LocalResult } from './conversation.ts'
 const result = (tool: string, parameters: Record<string, unknown>, data = {}): LocalResult => ({ result_id: tool, tool, parameters, data: { analysis: tool, dataset_version: 'v', ...data } })
 const reply = (...results: LocalResult[]): AIReply => ({ status: 'ok', model_acknowledgement: '완료', results, warning: null })
 
+test('single-region analysis preserves the explicit side and range without adding a partner', () => {
+  const comparison = { regions: [{ label_id: 13 }], samples: [51], zscore: [[0]], correlation: null }
+  const r = result('analyze_region', { region_id: 13, start: 51, end: 51 }, { comparison })
+  const selection = viewSelection(checkedReply(reply(r), 'v'))!
+  assert.equal(selection.region, 13)
+  assert.equal(selection.single, true)
+  assert.equal(selection.region_b, undefined)
+  assert.equal(selection.start, 51)
+  assert.equal(selection.end, 51)
+  assert.equal(selection.comparison, comparison)
+  assert.throws(() => viewSelection(reply(result('analyze_region', { region_id: 3, start: 80, end: 20 }))))
+})
+
 test('commands retain explicit pair, method, range and exact returned calculation', () => {
   const r = result('compare_regions', { region_a: 6, region_b: 16, start: 51, end: 150, method: 'spearman' })
   const selection = viewSelection(checkedReply(reply(r), 'v'))!

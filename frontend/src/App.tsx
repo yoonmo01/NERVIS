@@ -171,7 +171,7 @@ export default function App() {
     <div className={`core-stage state-${coreState}`} aria-hidden="true">
       <div className="core-aura" />
       <div className="orbit-guide"><span className="orbit-notch n1" /><span className="orbit-notch n2" /><span className="orbit-notch n3" /></div>
-      {(stage === 'core' || ready) && <CoreScene level={audio.level} reduced={reduced} state={coreState} />}
+      {(stage === 'core' || ready) && <CoreScene level={audio.level} reduced={reduced} state={coreState} dense={view === 'home'} />}
       <div className="core-crosshair ch-left" /><div className="core-crosshair ch-right" />
     </div>
 

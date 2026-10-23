@@ -8,22 +8,23 @@ export function introStage(elapsed: number, reduced = false): IntroStage {
   return 'title'
 }
 
-export function makeCoreGeometry() {
+export function makeCoreGeometry(dense = false) {
   const shell: number[] = [], inner: number[] = [], panels: number[] = [], particles: number[] = []
   const point = (r: number, p: number, t: number) => [r * Math.sin(p) * Math.cos(t), r * Math.cos(p), r * Math.sin(p) * Math.sin(t)]
   const segment = (target: number[], a: number[], b: number[]) => target.push(...a, ...b)
-  for (let row = 0; row < 17; row++) {
-    const phi = 0.2 + row * (Math.PI - 0.4) / 16
-    for (let section = 0; section < 14; section++) {
-      const first = section * Math.PI / 7 + (row % 2) * 0.16
-      const width = 0.19 + ((section + row) % 3) * 0.06
+  const rows = dense ? 25 : 17, sections = dense ? 22 : 14
+  for (let row = 0; row < rows; row++) {
+    const phi = 0.2 + row * (Math.PI - 0.4) / (rows - 1)
+    for (let section = 0; section < sections; section++) {
+      const first = section * Math.PI * 2 / sections + (row % 2) * 0.16
+      const width = (0.19 + ((section + row) % 3) * 0.06) * 14 / sections
       const radius = 1.58 + Math.sin(row * 2) * 0.035
       for (let step = 0; step < 8; step++) {
         const t = first + step * width / 8, next = t + width / 8
         segment(shell, point(1.73, phi, t), point(1.73, phi, next))
         if ((row + section) % 4 === 0) continue
         const a = point(radius, phi, t), b = point(radius, phi, next)
-        const c = point(radius, phi + 0.075, t), d = point(radius, phi + 0.075, next)
+        const c = point(radius, phi + (dense ? 0.05 : 0.075), t), d = point(radius, phi + (dense ? 0.05 : 0.075), next)
         panels.push(...a, ...b, ...c, ...b, ...d, ...c)
       }
       segment(shell, point(1.7, phi, first), point(1.84, phi, first))
@@ -37,8 +38,9 @@ export function makeCoreGeometry() {
       segment(shell, point(1.77, phi, theta), point(1.77, phi + 0.04, theta))
     }
   }
-  for (let ring = 0; ring < 7; ring++) {
-    const radius = 0.52 + ring * 0.145, tilt = ring * 0.24
+  const rings = dense ? 14 : 7
+  for (let ring = 0; ring < rings; ring++) {
+    const radius = 0.52 + ring * 0.87 / (rings - 1), tilt = ring * 0.24
     const circle = (t: number) => [Math.cos(t) * radius, Math.sin(t) * radius * Math.cos(tilt), Math.sin(t) * radius * Math.sin(tilt)]
     for (let step = 0; step < 120; step++) {
       if ((step + ring * 7) % 30 > 19) continue
@@ -49,9 +51,18 @@ export function makeCoreGeometry() {
       }
     }
   }
+  if (dense) for (const radius of [0.72, 1.03, 1.34]) {
+    for (let column = 0; column < 12; column++) {
+      const theta = column * Math.PI / 6
+      for (let step = 0; step < 48; step++) {
+        const phi = 0.12 + step * (Math.PI - 0.24) / 48
+        if ((step + column) % 8 !== 0) segment(inner, point(radius, phi, theta), point(radius, phi + (Math.PI - 0.24) / 48, theta))
+      }
+    }
+  }
   let seed = 6043
   const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296 }
-  for (let i = 0; i < 2800; i++) {
+  for (let i = 0; i < (dense ? 4900 : 2800); i++) {
     const radius = i < 2100 ? 1.8 + random() * 0.18 : 0.45 + random() * 0.95
     particles.push(...point(radius, Math.acos(2 * random() - 1), random() * Math.PI * 2))
   }
@@ -65,7 +76,7 @@ export function makeCoreGeometry() {
 }
 
 export type CoreState = 'standby' | 'processing' | 'analyzing' | 'error' | 'paused' | 'preview'
-export const coreStateColors: Record<CoreState, string> = { standby: '#68c9ff', processing: '#ffb05f', analyzing: '#61f0de', error: '#ff626e', paused: '#7193af', preview: '#68c9ff' }
+export const coreStateColors: Record<CoreState, string> = { standby: '#68c9ff', processing: '#ff6a00', analyzing: '#61f0de', error: '#ff626e', paused: '#7193af', preview: '#68c9ff' }
 
 export function coreMotion(elapsed: number, level: number, reduced: boolean, state: CoreState = 'standby') {
   const t = reduced || !Number.isFinite(elapsed) ? 0 : elapsed

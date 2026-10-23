@@ -24,6 +24,18 @@ test('layered geometry is deterministic, finite and bounded', () => {
   assert.equal(a.shell.length % 6, 0)
 })
 
+test('home core adds detail within the same bounds while compact remains the default', () => {
+  const compact = makeCoreGeometry(), home = makeCoreGeometry(true)
+  assert.deepEqual(compact, makeCoreGeometry(false))
+  assert.deepEqual(home, makeCoreGeometry(true))
+  for (const key of ['shell', 'inner', 'panels', 'particles'] as const) {
+    assert.ok(home[key].length > compact[key].length)
+    assert.equal(home[key].length % 3, 0)
+    assert.ok(home[key].every(v => Number.isFinite(v) && Math.abs(v) < 2.5))
+  }
+  assert.deepEqual(home.glow, compact.glow)
+})
+
 test('ID masks color only selected labels and preserve unlabelled pixels', () => {
   const pixels = new Uint8ClampedArray([0, 0, 0, 255, 1, 1, 1, 255, 11, 11, 11, 255, 2, 2, 2, 255])
   const output = maskOverlay(pixels, new Map([[1, [230, 70, 70]], [11, [150, 46, 46]]]))

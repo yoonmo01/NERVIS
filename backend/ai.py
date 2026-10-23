@@ -16,7 +16,7 @@ from pydantic import Field, ValidationError
 from backend import analysis
 from backend.ai_facts import summary_facts
 from backend.schemas import (RequestModel, RegionId, SampleRange, TimeseriesRequest,
-                             CompareRequest, DetailedRequest, PairsRequest, WindowsRequest)
+                             CompareRequest, DetailedRequest, PairsRequest, WindowsRequest, RegionAnalysisRequest)
 
 
 BASE_URL = "https://factchat-cloud.mindlogic.ai/v1/gateway"
@@ -142,10 +142,12 @@ TOOL_MODELS = {
     "find_similar_pairs": PairsRequest, "analyze_pair_over_windows": WindowsRequest,
     "get_region_slices": SlicesRequest,
     "analyze_regions_detailed": DetailedRequest,
+    "analyze_region": RegionAnalysisRequest,
 }
 TOOL_DESCRIPTIONS = {
     "get_dataset_summary": "Inspect dataset structure and units locally.",
     "get_region_info": "Inspect one region's structural measurements locally.",
+    "analyze_region": "Analyze ONE region: structure, signal statistics and major sample points. Default for a single-region analysis request, including explicit region IDs.",
     "get_timeseries": "Read selected regions' BOLD and z-score signals locally.",
     "compare_regions": "Compare two regions' signals, correlation and structure locally.",
     "find_similar_pairs": "Search correlation-ranked pairs; homologous means left/right counterparts.",
@@ -162,11 +164,31 @@ Choose tools from the actual command, never simulate results. Left region IDs 1.
 Right counterparts have ID +10. A category comparison means its left/right pair.
 Time is sample index, never seconds. No diagnosis, intelligence or personality inference.
 Use explicit targets and ranges first, otherwise the current selected_region_ids and range.
-An empty selection is no target: ask which region, never invent a default.
-No conversation history is available; clarify ambiguous past references.
+An empty selection is no target for regional analysis, but global searches need no selection.
+No conversation history is available. Use the current command and selected IDs/range;
+clarify ambiguous references to previous numbered options instead of guessing.
+For an explicit all-region highest-correlation request, call find_similar_pairs with
+scope=all, order=descending, limit=1 (unless another count is requested). Never ask
+the user to choose a pair: the search compares all 190 candidates. Homologous-only
+requests use scope=homologous. Use the requested/current sample range.
+For '3번 영역 분석해줘', call analyze_region(region_id=3) with requested/current range,
+not get_region_info alone. Single-region analysis includes structure AND signal
+variation/major points. Never invent a partner. Use get_region_info for structure-only
+or name/info questions. Named-category left/right comparisons use pair tools; an
+explicit hemisphere or ID remains single unless comparison is requested.
+Execute requested available analyses before answering, rather than merely offering
+to do them later. Distinguish not-yet-calculated from unavailable due to data/conditions.
 Use compare_regions for basic comparisons, analyze_regions_detailed for detailed requests.
 Approved summary facts will follow the tool call. Explain the actual target, sample range,
-main results and meaning in Korean, usually 3-5 sentences, longer for detailed requests.
+main results and meaning in plain Korean for a non-specialist, usually 3-5 sentences.
+Lead with the overall finding, then explain what it means in everyday language.
+For detailed requests, group the important findings into a few short paragraphs;
+do not turn the answer into a catalogue of every metric or ranked sample.
+Use only a few essential numbers. Detailed values belong in the calculation results tab.
+Explain unavoidable terms immediately: correlation is how similarly signals rise and fall;
+variability is the size of their fluctuations. Never equate signal magnitude with more
+brain activity, stronger ability or better development. Present interpretations as
+descriptions of the observed data, not speculative biological explanations.
 Do not just acknowledge completion or promise to display results. Do not claim screen completion.
 Separate structural differences, temporal correlation and descriptive interpretation.
 Use only supplied facts and units, never infer diagnosis, causation or personal ability.
@@ -178,8 +200,13 @@ At most one batch of 6 tools. If the command is ambiguous, ask for clarification
 
 EXPLANATION = """Return only a JSON object with exactly answer and used_fact_ids.
 answer: a natural Korean explanation of the supplied results, not a completion notice.
+Write for a non-specialist: overall finding first, everyday meaning second, then only
+the most useful supporting details. Prefer short connected sentences over metric lists.
+Explain technical terms when needed; do not use the absence of an explanation as a
+reason to invent findings. If supplied facts are insufficient, say what is unavailable.
 used_fact_ids: an array of exact fact IDs supporting the explanation. Use at least one
 when facts are provided. Keep numbers, signs, units and ranges consistent with facts.
+Use ordinary Markdown for emphasis/headings/lists without escaping its formatting.
 Do not include memory_update, markdown fences or additional fields."""
 
 

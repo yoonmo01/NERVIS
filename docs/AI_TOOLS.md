@@ -9,7 +9,7 @@ conversation history, RAG, STT/TTS or deployment is included. The local HTTP fie
 `model_acknowledgement` retains its name for compatibility but now contains the explanation.
 A model clarification without tools remains plain text. No screen-completion claim is inferred.
 
-Eight strict tools: get_dataset_summary, get_region_info, get_timeseries, compare_regions,
+Nine strict tools: get_dataset_summary, get_region_info, analyze_region, get_timeseries, compare_regions,
 find_similar_pairs, analyze_pair_over_windows, get_region_slices, analyze_regions_detailed.
 All arguments in a batch (maximum six calls) are validated before execution. Additional
 rounds, arbitrary paths/code/tools and automatic retries/model fallback are forbidden.
@@ -21,6 +21,19 @@ selection-related top pairs, major selected/all-region sample points, autocorrel
 boxcar spectral peaks, and both raw-centered and within-range-standardized all-20-region PCA.
 All modules run within the requested sample interval. Structure is fixed independently of it.
 Local POST `/api/analysis/detailed` exposes the same compound function without AI calls.
+
+Single-region analysis uses `analyze_region(region_id, start, end)` and local POST
+`/api/analysis/region`: structural measurements, raw/global-z-score statistics and up to
+five major deviation/change samples. The comparison-shaped display payload contains
+only the requested region and is local-only; no partner/correlation is invented.
+The explanation boundary forwards only approved structure/statistics/major-point/condition
+summaries. Single-region ID analysis is the default for analysis requests; structure-only
+questions may use get_region_info. Explicit global highest-correlation searches use all
+190 candidate pairs and default to returning the top one, without requiring a selection.
+Live model tool-choice/response quality after this revision remains unverified.
+
+Conversation continuity and DB work were deferred by the user. ChatRequest retains only
+the current command and selected IDs/range; no history/session-memory fields were added.
 
 Missing/constant metrics return unavailable with reasons, not invented zeros. Spectrum peaks
 require at least eight samples. Autocorrelation retains at least three overlapping samples.
@@ -39,8 +52,13 @@ validated arguments, dataset version, status, units/normalization, correlation, 
 measurements/differences, signal distribution, window extrema, up to five ranked pairs,
 major points, selected autocorrelation lags1/5/10/20, spectral peaks and PCA summaries.
 The final prompt asks for target/range → main results → meaning, avoiding completion-only
-phrasing and promises to display results. It requests3–5 sentences for basic results and
-sufficient detail for detailed results. Missing conditions are explained when material.
+phrasing and promises to display results. It requests3–5 plain-Korean sentences for basic
+results: overall finding first, everyday meaning second, then a few essential supporting
+details. Detailed requests use a few short paragraphs of main findings rather than every
+metric/ranked sample; full values remain in the calculation tab. Unavoidable terms are
+explained. Signal magnitude must not be equated with more activity or better ability.
+Missing conditions are explained when material. This wording revision has not been
+verified with a live model request.
 
 Never transmit MRI/mask pixels, file paths, raw/full signal arrays, file hashes, actual
 credentials or identifying information. Complete calculations remain on local HTTP only.

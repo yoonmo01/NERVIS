@@ -1,0 +1,549 @@
+{
+  "schema": "nervis-brain-map-v1",
+  "coordinate_system": {
+    "blender": "+X left, -Y anterior, +Z superior",
+    "gltf": "+X left, +Y superior, +Z anterior"
+  },
+  "regions": [
+    {
+      "label_id": 1,
+      "hemisphere": "left",
+      "region_name": "Prefrontal",
+      "glb_nodes": [
+        "ROI_01_Prefrontal_L"
+      ],
+      "center_blender": [
+        0.501237653195858,
+        -0.7191357612609863,
+        0.5193778872489929
+      ],
+      "center_gltf": [
+        0.501237653195858,
+        0.5193778872489929,
+        0.7191357612609863
+      ],
+      "suggested_view": "hero",
+      "mapping_status": "GENERIC_ANATOMICAL_GROUP_APPROXIMATE_DATA_MAPPING",
+      "placement_reason": "Source anatomical component names grouped to data category; no patient or supplied-atlas boundary reconstruction; posterior 28% of superior/middle frontal components assigned to illustrative premotor coverage",
+      "geometry_source": "BodyParts3D 4.0 anatomical component surfaces; grouped for NERVIS",
+      "vertex_count_before_modifiers": 11453,
+      "source_files": [
+        "inferior_frontal_gyrus_FJ1744.obj",
+        "middle_frontal_gyrus_FJ1787.obj",
+        "orbital_gyrus_FJ1793.obj",
+        "superior_frontal_gyrus_FJ1833.obj"
+      ]
+    },
+    {
+      "label_id": 2,
+      "hemisphere": "left",
+      "region_name": "Motor_Premotor",
+      "glb_nodes": [
+        "ROI_02_Motor_Premotor_L"
+      ],
+      "center_blender": [
+        0.5189604982733727,
+        0.11878050863742828,
+        0.7476798892021179
+      ],
+      "center_gltf": [
+        0.5189604982733727,
+        0.7476798892021179,
+        -0.11878050863742828
+      ],
+      "suggested_view": "hero",
+      "mapping_status": "GENERIC_ANATOMICAL_GROUP_APPROXIMATE_DATA_MAPPING",
+      "placement_reason": "Source anatomical component names grouped to data category; no patient or supplied-atlas boundary reconstruction; posterior 28% of superior/middle frontal components assigned to illustrative premotor coverage",
+      "geometry_source": "BodyParts3D 4.0 anatomical component surfaces; grouped for NERVIS",
+      "vertex_count_before_modifiers": 5776,
+      "source_files": [
+        "middle_frontal_gyrus_FJ1787.obj",
+        "precentral_gyrus_FJ1800.obj",
+        "superior_frontal_gyrus_FJ1833.obj"
+      ]
+    },
+    {
+      "label_id": 3,
+      "hemisphere": "left",
+      "region_name": "Somatosensory",
+      "glb_nodes": [
+        "ROI_03_Somatosensory_L"
+      ],
+      "center_blender": [
+        0.5556434020400047,
+        0.3668469786643982,
+        0.7201849222183228
+      ],
+      "center_gltf": [
+        0.5556434020400047,
+        0.7201849222183228,
+        -0.3668469786643982
+      ],
+      "suggested_view": "hero",
+      "mapping_status": "GENERIC_ANATOMICAL_GROUP_APPROXIMATE_DATA_MAPPING",
+      "placement_reason": "Source anatomical component names grouped to data category; no patient or supplied-atlas boundary reconstruction",
+      "geometry_source": "BodyParts3D 4.0 anatomical component surfaces; grouped for NERVIS",
+      "vertex_count_before_modifiers": 3037,
+      "source_files": [
+        "postcentral_gyrus_FJ1797.obj"
+      ]
+    },
+    {
+      "label_id": 4,
+      "hemisphere": "left",
+      "region_name": "Posterior_Parietal",
+      "glb_nodes": [
+        "ROI_04_Posterior_Parietal_L"
+      ],
+      "center_blender": [
+        0.5642627701163292,
+        0.7158323526382446,
+        0.47838088870048523
+      ],
+      "center_gltf": [
+        0.5642627701163292,
+        0.47838088870048523,
+        -0.7158323526382446
+      ],
+      "suggested_view": "hero",
+      "mapping_status": "GENERIC_ANATOMICAL_GROUP_APPROXIMATE_DATA_MAPPING",
+      "placement_reason": "Source anatomical component names grouped to data category; no patient or supplied-atlas boundary reconstruction",
+      "geometry_source": "BodyParts3D 4.0 anatomical component surfaces; grouped for NERVIS",
+      "vertex_count_before_modifiers": 9795,
+      "source_files": [
+        "angular_gyrus_FJ1732.obj",
+        "superior_parietal_lobule_FJ1835.obj",
+        "supramarginal_gyrus_FJ1841.obj"
+      ]
+    },
+    {
+      "label_id": 5,
+      "hemisphere": "left",
+      "region_name": "Superior_Temporal",
+      "glb_nodes": [
+        "ROI_05_Superior_Temporal_L"
+      ],
+      "center_blender": [
+        0.7770089730620384,
+        0.0731269121170044,
+        0.01493002474308014
+      ],
+      "center_gltf": [
+        0.7770089730620384,
+        0.01493002474308014,
+        -0.0731269121170044
+      ],
+      "suggested_view": "lateral_left",
+      "mapping_status": "GENERIC_ANATOMICAL_GROUP_APPROXIMATE_DATA_MAPPING",
+      "placement_reason": "Source anatomical component names grouped to data category; no patient or supplied-atlas boundary reconstruction",
+      "geometry_source": "BodyParts3D 4.0 anatomical component surfaces; grouped for NERVIS",
+      "vertex_count_before_modifiers": 3347,
+      "source_files": [
+        "superior_temporal_gyrus_FJ1837.obj",
+        "superior_temporal_gyrus_FJ1839.obj"
+      ]
+    },
+    {
+      "label_id": 6,
+      "hemisphere": "left",
+      "region_name": "Middle_Inferior_Temporal",
+      "glb_nodes": [
+        "ROI_06_Middle_Inferior_Temporal_L"
+      ],
+      "center_blender": [
+        0.6454282030463219,
+        0.15838462114334106,
+        -0.1997230499982834
+      ],
+      "center_gltf": [
+        0.6454282030463219,
+        -0.1997230499982834,
+        -0.15838462114334106
+      ],
+      "suggested_view": "lateral_left",
+      "mapping_status": "GENERIC_ANATOMICAL_GROUP_APPROXIMATE_DATA_MAPPING",
+      "placement_reason": "Source anatomical component names grouped to data category; no patient or supplied-atlas boundary reconstruction",
+      "geometry_source": "BodyParts3D 4.0 anatomical component surfaces; grouped for NERVIS",
+      "vertex_count_before_modifiers": 5916,
+      "source_files": [
+        "fusiform_gyrus_FJ1783.obj",
+        "inferior_temporal_gyrus_FJ1746.obj",
+        "middle_temporal_gyrus_FJ1789.obj"
+      ]
+    },
+    {
+      "label_id": 7,
+      "hemisphere": "left",
+      "region_name": "Medial_Temporal",
+      "glb_nodes": [
+        "ROI_07_Medial_Temporal_L"
+      ],
+      "center_blender": [
+        0.33026399463415146,
+        0.056705743074417114,
+        -0.22999131679534912
+      ],
+      "center_gltf": [
+        0.33026399463415146,
+        -0.22999131679534912,
+        -0.056705743074417114
+      ],
+      "suggested_view": "lateral_left",
+      "mapping_status": "GENERIC_ANATOMICAL_GROUP_APPROXIMATE_DATA_MAPPING",
+      "placement_reason": "Source anatomical component names grouped to data category; no patient or supplied-atlas boundary reconstruction; parahippocampal cortical proxy, not complete medial temporal subregion coverage",
+      "geometry_source": "BodyParts3D 4.0 anatomical component surfaces; grouped for NERVIS",
+      "vertex_count_before_modifiers": 651,
+      "source_files": [
+        "parahippocampal_gyrus_FJ1785.obj"
+      ]
+    },
+    {
+      "label_id": 8,
+      "hemisphere": "left",
+      "region_name": "Occipital_Visual",
+      "glb_nodes": [
+        "ROI_08_Occipital_Visual_L"
+      ],
+      "center_blender": [
+        0.36842673271894455,
+        0.9051231145858765,
+        -0.04218089580535889
+      ],
+      "center_gltf": [
+        0.36842673271894455,
+        -0.04218089580535889,
+        -0.9051231145858765
+      ],
+      "suggested_view": "hero",
+      "mapping_status": "GENERIC_ANATOMICAL_GROUP_APPROXIMATE_DATA_MAPPING",
+      "placement_reason": "Source anatomical component names grouped to data category; no patient or supplied-atlas boundary reconstruction",
+      "geometry_source": "BodyParts3D 4.0 anatomical component surfaces; grouped for NERVIS",
+      "vertex_count_before_modifiers": 3794,
+      "source_files": [
+        "occipital_lobe_FJ1791.obj"
+      ]
+    },
+    {
+      "label_id": 9,
+      "hemisphere": "left",
+      "region_name": "Cingulate",
+      "glb_nodes": [
+        "ROI_09_Cingulate_L"
+      ],
+      "center_blender": [
+        0.2500740513205528,
+        -0.10569921135902405,
+        0.25501906871795654
+      ],
+      "center_gltf": [
+        0.2500740513205528,
+        0.25501906871795654,
+        0.10569921135902405
+      ],
+      "suggested_view": "lateral_left",
+      "mapping_status": "GENERIC_ANATOMICAL_GROUP_APPROXIMATE_DATA_MAPPING",
+      "placement_reason": "Source anatomical component names grouped to data category; no patient or supplied-atlas boundary reconstruction",
+      "geometry_source": "BodyParts3D 4.0 anatomical component surfaces; grouped for NERVIS",
+      "vertex_count_before_modifiers": 2054,
+      "source_files": [
+        "cingulate_gyrus_FJ1739.obj"
+      ]
+    },
+    {
+      "label_id": 10,
+      "hemisphere": "left",
+      "region_name": "Insula",
+      "glb_nodes": [
+        "ROI_10_Insula_L"
+      ],
+      "center_blender": [
+        0.566992960870266,
+        -0.26147937774658203,
+        0.23882509768009186
+      ],
+      "center_gltf": [
+        0.566992960870266,
+        0.23882509768009186,
+        0.26147937774658203
+      ],
+      "suggested_view": "lateral_left",
+      "mapping_status": "GENERIC_ANATOMICAL_GROUP_APPROXIMATE_DATA_MAPPING",
+      "placement_reason": "Source anatomical component names grouped to data category; no patient or supplied-atlas boundary reconstruction",
+      "geometry_source": "BodyParts3D 4.0 anatomical component surfaces; grouped for NERVIS",
+      "vertex_count_before_modifiers": 1871,
+      "source_files": [
+        "insula_FJ1748.obj"
+      ]
+    },
+    {
+      "label_id": 11,
+      "hemisphere": "right",
+      "region_name": "Prefrontal",
+      "glb_nodes": [
+        "ROI_11_Prefrontal_R"
+      ],
+      "center_blender": [
+        -0.5215916261076927,
+        -0.7201621532440186,
+        0.5178595185279846
+      ],
+      "center_gltf": [
+        -0.5215916261076927,
+        0.5178595185279846,
+        0.7201621532440186
+      ],
+      "suggested_view": "hero",
+      "mapping_status": "GENERIC_ANATOMICAL_GROUP_APPROXIMATE_DATA_MAPPING",
+      "placement_reason": "Source anatomical component names grouped to data category; no patient or supplied-atlas boundary reconstruction; posterior 28% of superior/middle frontal components assigned to illustrative premotor coverage",
+      "geometry_source": "BodyParts3D 4.0 anatomical component surfaces; grouped for NERVIS",
+      "vertex_count_before_modifiers": 11420,
+      "source_files": [
+        "inferior_frontal_gyrus_FJ1745.obj",
+        "middle_frontal_gyrus_FJ1788.obj",
+        "orbital_gyrus_FJ1794.obj",
+        "superior_frontal_gyrus_FJ1834.obj"
+      ]
+    },
+    {
+      "label_id": 12,
+      "hemisphere": "right",
+      "region_name": "Motor_Premotor",
+      "glb_nodes": [
+        "ROI_12_Motor_Premotor_R"
+      ],
+      "center_blender": [
+        -0.538908027112484,
+        0.11945180594921112,
+        0.7460705637931824
+      ],
+      "center_gltf": [
+        -0.538908027112484,
+        0.7460705637931824,
+        -0.11945180594921112
+      ],
+      "suggested_view": "hero",
+      "mapping_status": "GENERIC_ANATOMICAL_GROUP_APPROXIMATE_DATA_MAPPING",
+      "placement_reason": "Source anatomical component names grouped to data category; no patient or supplied-atlas boundary reconstruction; posterior 28% of superior/middle frontal components assigned to illustrative premotor coverage",
+      "geometry_source": "BodyParts3D 4.0 anatomical component surfaces; grouped for NERVIS",
+      "vertex_count_before_modifiers": 5883,
+      "source_files": [
+        "middle_frontal_gyrus_FJ1788.obj",
+        "precentral_gyrus_FJ1801.obj",
+        "superior_frontal_gyrus_FJ1834.obj"
+      ]
+    },
+    {
+      "label_id": 13,
+      "hemisphere": "right",
+      "region_name": "Somatosensory",
+      "glb_nodes": [
+        "ROI_13_Somatosensory_R"
+      ],
+      "center_blender": [
+        -0.5743375644087791,
+        0.367767870426178,
+        0.7225372195243835
+      ],
+      "center_gltf": [
+        -0.5743375644087791,
+        0.7225372195243835,
+        -0.367767870426178
+      ],
+      "suggested_view": "hero",
+      "mapping_status": "GENERIC_ANATOMICAL_GROUP_APPROXIMATE_DATA_MAPPING",
+      "placement_reason": "Source anatomical component names grouped to data category; no patient or supplied-atlas boundary reconstruction",
+      "geometry_source": "BodyParts3D 4.0 anatomical component surfaces; grouped for NERVIS",
+      "vertex_count_before_modifiers": 3060,
+      "source_files": [
+        "postcentral_gyrus_FJ1798.obj"
+      ]
+    },
+    {
+      "label_id": 14,
+      "hemisphere": "right",
+      "region_name": "Posterior_Parietal",
+      "glb_nodes": [
+        "ROI_14_Posterior_Parietal_R"
+      ],
+      "center_blender": [
+        -0.5813024863600731,
+        0.7196616530418396,
+        0.4793146550655365
+      ],
+      "center_gltf": [
+        -0.5813024863600731,
+        0.4793146550655365,
+        -0.7196616530418396
+      ],
+      "suggested_view": "hero",
+      "mapping_status": "GENERIC_ANATOMICAL_GROUP_APPROXIMATE_DATA_MAPPING",
+      "placement_reason": "Source anatomical component names grouped to data category; no patient or supplied-atlas boundary reconstruction",
+      "geometry_source": "BodyParts3D 4.0 anatomical component surfaces; grouped for NERVIS",
+      "vertex_count_before_modifiers": 10003,
+      "source_files": [
+        "angular_gyrus_FJ1733.obj",
+        "superior_parietal_lobule_FJ1836.obj",
+        "supramarginal_gyrus_FJ1842.obj"
+      ]
+    },
+    {
+      "label_id": 15,
+      "hemisphere": "right",
+      "region_name": "Superior_Temporal",
+      "glb_nodes": [
+        "ROI_15_Superior_Temporal_R"
+      ],
+      "center_blender": [
+        -0.7997754439711571,
+        0.07429301738739014,
+        0.01265038549900055
+      ],
+      "center_gltf": [
+        -0.7997754439711571,
+        0.01265038549900055,
+        -0.07429301738739014
+      ],
+      "suggested_view": "lateral_right",
+      "mapping_status": "GENERIC_ANATOMICAL_GROUP_APPROXIMATE_DATA_MAPPING",
+      "placement_reason": "Source anatomical component names grouped to data category; no patient or supplied-atlas boundary reconstruction",
+      "geometry_source": "BodyParts3D 4.0 anatomical component surfaces; grouped for NERVIS",
+      "vertex_count_before_modifiers": 3432,
+      "source_files": [
+        "superior_temporal_gyrus_FJ1838.obj",
+        "superior_temporal_gyrus_FJ1840.obj"
+      ]
+    },
+    {
+      "label_id": 16,
+      "hemisphere": "right",
+      "region_name": "Middle_Inferior_Temporal",
+      "glb_nodes": [
+        "ROI_16_Middle_Inferior_Temporal_R"
+      ],
+      "center_blender": [
+        -0.6632356867194176,
+        0.15753287076950073,
+        -0.2042999416589737
+      ],
+      "center_gltf": [
+        -0.6632356867194176,
+        -0.2042999416589737,
+        -0.15753287076950073
+      ],
+      "suggested_view": "lateral_right",
+      "mapping_status": "GENERIC_ANATOMICAL_GROUP_APPROXIMATE_DATA_MAPPING",
+      "placement_reason": "Source anatomical component names grouped to data category; no patient or supplied-atlas boundary reconstruction",
+      "geometry_source": "BodyParts3D 4.0 anatomical component surfaces; grouped for NERVIS",
+      "vertex_count_before_modifiers": 6083,
+      "source_files": [
+        "fusiform_gyrus_FJ1784.obj",
+        "inferior_temporal_gyrus_FJ1747.obj",
+        "middle_temporal_gyrus_FJ1790.obj"
+      ]
+    },
+    {
+      "label_id": 17,
+      "hemisphere": "right",
+      "region_name": "Medial_Temporal",
+      "glb_nodes": [
+        "ROI_17_Medial_Temporal_R"
+      ],
+      "center_blender": [
+        -0.3492400571703911,
+        0.05647002160549164,
+        -0.227901428937912
+      ],
+      "center_gltf": [
+        -0.3492400571703911,
+        -0.227901428937912,
+        -0.05647002160549164
+      ],
+      "suggested_view": "lateral_right",
+      "mapping_status": "GENERIC_ANATOMICAL_GROUP_APPROXIMATE_DATA_MAPPING",
+      "placement_reason": "Source anatomical component names grouped to data category; no patient or supplied-atlas boundary reconstruction; parahippocampal cortical proxy, not complete medial temporal subregion coverage",
+      "geometry_source": "BodyParts3D 4.0 anatomical component surfaces; grouped for NERVIS",
+      "vertex_count_before_modifiers": 725,
+      "source_files": [
+        "parahippocampal_gyrus_FJ1786.obj"
+      ]
+    },
+    {
+      "label_id": 18,
+      "hemisphere": "right",
+      "region_name": "Occipital_Visual",
+      "glb_nodes": [
+        "ROI_18_Occipital_Visual_R"
+      ],
+      "center_blender": [
+        -0.38892512768507004,
+        0.904719352722168,
+        -0.04200133681297302
+      ],
+      "center_gltf": [
+        -0.38892512768507004,
+        -0.04200133681297302,
+        -0.904719352722168
+      ],
+      "suggested_view": "hero",
+      "mapping_status": "GENERIC_ANATOMICAL_GROUP_APPROXIMATE_DATA_MAPPING",
+      "placement_reason": "Source anatomical component names grouped to data category; no patient or supplied-atlas boundary reconstruction",
+      "geometry_source": "BodyParts3D 4.0 anatomical component surfaces; grouped for NERVIS",
+      "vertex_count_before_modifiers": 3934,
+      "source_files": [
+        "occipital_lobe_FJ1792.obj"
+      ]
+    },
+    {
+      "label_id": 19,
+      "hemisphere": "right",
+      "region_name": "Cingulate",
+      "glb_nodes": [
+        "ROI_19_Cingulate_R"
+      ],
+      "center_blender": [
+        -0.26946090906858444,
+        -0.10703033208847046,
+        0.25448310375213623
+      ],
+      "center_gltf": [
+        -0.26946090906858444,
+        0.25448310375213623,
+        0.10703033208847046
+      ],
+      "suggested_view": "lateral_right",
+      "mapping_status": "GENERIC_ANATOMICAL_GROUP_APPROXIMATE_DATA_MAPPING",
+      "placement_reason": "Source anatomical component names grouped to data category; no patient or supplied-atlas boundary reconstruction",
+      "geometry_source": "BodyParts3D 4.0 anatomical component surfaces; grouped for NERVIS",
+      "vertex_count_before_modifiers": 1994,
+      "source_files": [
+        "cingulate_gyrus_FJ1740.obj"
+      ]
+    },
+    {
+      "label_id": 20,
+      "hemisphere": "right",
+      "region_name": "Insula",
+      "glb_nodes": [
+        "ROI_20_Insula_R"
+      ],
+      "center_blender": [
+        -0.5875427946448326,
+        -0.26214444637298584,
+        0.23865121603012085
+      ],
+      "center_gltf": [
+        -0.5875427946448326,
+        0.23865121603012085,
+        0.26214444637298584
+      ],
+      "suggested_view": "lateral_right",
+      "mapping_status": "GENERIC_ANATOMICAL_GROUP_APPROXIMATE_DATA_MAPPING",
+      "placement_reason": "Source anatomical component names grouped to data category; no patient or supplied-atlas boundary reconstruction",
+      "geometry_source": "BodyParts3D 4.0 anatomical component surfaces; grouped for NERVIS",
+      "vertex_count_before_modifiers": 1883,
+      "source_files": [
+        "insula_FJ1749.obj"
+      ]
+    }
+  ]
+}

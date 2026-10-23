@@ -187,6 +187,21 @@ def _major_points(values, start):
     return [{"sample": start+i, "score": float(values[i])} for i in selected]
 
 
+def analyze_region(data: Dataset, region_id: int, start: int = 1, end: int = 200) -> dict:
+    series = get_timeseries(data, [region_id], start, end)
+    region = get_region_info(data, region_id)['region']
+    raw = np.asarray(series['bold'])[:, 0]
+    z = np.asarray(series['zscore'])[:, 0]
+    return _result(data, 'analyze_region', _time_parameters(start, end, region_id=region_id),
+        region=region, signal_statistics={'bold': _statistics(raw), 'global_zscore': _statistics(z)},
+        major_points={'deviation_z': _major_points(np.abs(z), start),
+                      'adjacent_change_z': _major_points(np.abs(np.diff(z)), start+1)},
+        comparison={**series, 'regions': [region], 'correlation': None},
+        conditions={'signal_unit': 'unknown BOLD scale', 'zscore_reference': 'full 200 samples',
+                    'sample_interval_seconds': None, 'major_points': 'up to 5 points, >=10 samples apart; change assigned to later sample'},
+        warnings=_time_warnings())
+
+
 def _pca_summary(values, selected_ids, standardize=False):
     constants = np.all(values == values[0], axis=0)
     centered = values-values.mean(axis=0)
