@@ -1,11 +1,21 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
-import { cameraPresets, cameraPoseBetween, sampleSurfacePoints } from './hologramModel.ts'
+import { cameraPresets, cameraPoseBetween, preferredBrainView, sampleSurfacePoints } from './hologramModel.ts'
+
+test('internal cortical regions use an oblique view in either hemisphere', () => {
+  for (let id = 1; id <= 20; id++) {
+    const expected = [7, 9, 10].includes((id - 1) % 10 + 1) ? 'oblique' : 'default'
+    assert.equal(preferredBrainView([id]), expected)
+  }
+  assert.equal(preferredBrainView([2, 20]), 'oblique')
+  assert.equal(preferredBrainView([1, 11]), 'default')
+  assert.equal(preferredBrainView([]), 'default')
+})
 
 test('camera presets retain anatomical axes and opposite views move around the brain', () => {
   assert.equal(cameraPresets.default.position[0], 0)
-  assert.ok(cameraPresets.default.position[1] > 0 && cameraPresets.default.position[2] > cameraPresets.default.position[1])
+  assert.ok(cameraPresets.default.position[2] > 0 && cameraPresets.default.position[1] > cameraPresets.default.position[2], 'default view reveals the anterior-posterior silhouette and both hemispheres')
   assert.ok(cameraPresets.front.position[2] > 0)
   assert.ok(cameraPresets.back.position[2] < 0)
   assert.ok(cameraPresets.left.position[0] > 0)

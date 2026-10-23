@@ -13,7 +13,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from backend import analysis
 from backend.ai import AIError, AnalysisAI, ChatRequest, Gateway, Settings
 from backend.data import Dataset, load_dataset
-from backend.schemas import CompareRequest, PairsRequest, TimeseriesRequest, WindowsRequest
+from backend.schemas import CompareRequest, DetailedRequest, PairsRequest, TimeseriesRequest, WindowsRequest
 from scripts.prepare_app_data import fingerprint
 
 
@@ -83,8 +83,8 @@ def create_app(package_dir: Path = DEFAULT_PACKAGE, *, ai_service: AnalysisAI | 
     @application.get("/api/ai/status", tags=["AI (opt-in)"])
     def ai_status(request: Request):
         service = ai_instance(request)
-        remaining = max(0, service.gateway.settings.max_requests - service.gateway.used)
-        return {"enabled": remaining > 0, "model": service.gateway.settings.model,
+        remaining = service.gateway.remaining
+        return {"enabled": service.gateway.settings.active and remaining != 0, "model": service.gateway.settings.model,
                 "remaining_process_requests": remaining, "busy": service.busy.locked()}
 
     @application.post("/api/ai/chat", tags=["AI (opt-in)"])
@@ -132,6 +132,10 @@ def create_app(package_dir: Path = DEFAULT_PACKAGE, *, ai_service: AnalysisAI | 
     @application.post("/api/analysis/windows", tags=["analysis"])
     def windows(body: WindowsRequest, data: Data):
         return analysis.analyze_pair_over_windows(data, **body.model_dump())
+
+    @application.post("/api/analysis/detailed", tags=["analysis"])
+    def detailed(body: DetailedRequest, data: Data):
+        return analysis.analyze_regions_detailed(data, **body.model_dump())
 
     @application.get("/api/slices/{orientation}/{slice_index}/{kind}", tags=["images"])
     def image(orientation: Orientation, slice_index: Annotated[int, ApiPath(ge=0, le=999)],

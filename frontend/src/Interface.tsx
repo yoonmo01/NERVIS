@@ -22,6 +22,7 @@ export function Composer({ panel, draft, onDraft, onToggle, onClose, locked, clo
   const previousPanel = useRef(panel)
   const [lastPanel, setLastPanel] = useState(panel ?? 'text')
   const displayedPanel = panel ?? lastPanel
+  const statusMessage = locked ? '작업 진행 중 · 완료 후 입력할 수 있습니다.' : displayedPanel === 'text' ? status : 'STT 미연결 · 마이크 꺼짐 · 입력한 텍스트만 전송됩니다.'
   useEffect(() => {
     const previous = previousPanel.current
     previousPanel.current = panel
@@ -44,14 +45,13 @@ export function Composer({ panel, draft, onDraft, onToggle, onClose, locked, clo
       {closable && <div className="composer-heading"><button className="composer-close" aria-label="입력창 닫기" disabled={locked} onClick={onClose}><Icon name="close" /></button></div>}
       <div className={`composer-field${displayedPanel === 'voice' ? ' is-voice' : ''}`}>
         {displayedPanel === 'voice' && <span className="voice-field-icon" aria-hidden="true"><Icon name="mic" /></span>}
-        <textarea ref={textInput} aria-label="NERVIS에게 보낼 내용" maxLength={600} rows={1} value={draft} disabled={locked} onChange={e => onDraft(e.target.value)} aria-describedby="composer-status" />
+        <textarea ref={textInput} aria-label="NERVIS에게 보낼 내용" maxLength={600} rows={1} value={draft} disabled={locked} onChange={e => onDraft(e.target.value)} aria-describedby={statusMessage ? 'composer-status' : undefined} />
         <button className="field-mode-button" aria-label={displayedPanel === 'voice' ? '텍스트 입력 모드' : '음성 입력 모드'} aria-pressed={displayedPanel === 'voice'} disabled={locked} onClick={() => onToggle(displayedPanel === 'voice' ? 'text' : 'voice')}>{displayedPanel === 'voice' ? 'T' : <Icon name="mic" />}</button>
         <button className="send-button" disabled={!canSend || !draft.trim()} title="명령 전송 · Enter" aria-label="명령 전송" onClick={onSend}><Icon name="send" /></button>
       </div>
-      <p id="composer-status" className="composer-status">{locked ? '작업 진행 중 · 완료 후 입력할 수 있습니다.' : displayedPanel === 'text' ? status : 'STT 미연결 · 마이크 꺼짐 · 입력한 텍스트만 전송됩니다.'}</p>
+      {statusMessage && <p id="composer-status" className="composer-status">{statusMessage}</p>}
     </div>
     {!panel && <div className="composer-launchers">
-      <span className="composer-caption">대화 열기</span>
       <button ref={textLauncher} aria-label="텍스트 입력창" aria-expanded={false} aria-controls="conversation-panel" disabled={locked} onClick={() => onToggle('text')}>T</button>
       <button ref={voiceLauncher} aria-label="음성 입력 모드" aria-expanded={false} aria-controls="conversation-panel" disabled={locked} onClick={() => onToggle('voice')}><Icon name="mic" /></button>
     </div>}

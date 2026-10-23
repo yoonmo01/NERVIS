@@ -73,6 +73,9 @@ test('core motion rotates faster, reacts to audio, and respects reduced motion',
   assert.deepEqual(model.coreMotion(0, 0, true), model.coreMotion(100, 1, true))
   assert.deepEqual(model.coreMotion(0, 100, false), speaking)
   assert.ok(Object.values(model.coreMotion(Number.NaN, Number.NaN, false)).every(Number.isFinite))
+  assert.equal(model.coreStateColors.error, '#ff626e')
+  assert.notEqual(model.coreStateColors.processing, model.coreStateColors.analyzing)
+  assert.deepEqual(model.coreMotion(0, 0, true, 'error'), model.coreMotion(100, 1, true, 'error'))
 })
 
 test('composer stays expanded at home and toggles closed in analysis', () => {

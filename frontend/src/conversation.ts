@@ -1,15 +1,28 @@
 import type { Comparison, Slice, WindowResult } from './api.ts'
 import type { StageSelection } from './stageData.ts'
+import type { CoreState } from './model.ts'
 
 export type CommandPhase = 'idle' | 'requesting' | 'applying' | 'complete' | 'error'
-export interface AIStatus { enabled: boolean; model: string; remaining_process_requests: number; busy: boolean }
+export interface AIStatus { enabled: boolean; model: string; remaining_process_requests: number | null; busy: boolean }
 export interface LocalResult { result_id: string; tool: string; parameters: Record<string, unknown>; data: Record<string, unknown> }
 export interface AIReply { status: 'ok' | 'partial'; model_acknowledgement: string | null; results: LocalResult[]; warning: string | null }
 export interface ViewContext { selected_region_ids: number[]; start: number; end: number }
 export interface ViewRequest { id: number; selection: StageSelection }
 
-const toolNames = ['get_dataset_summary', 'get_region_info', 'get_timeseries', 'compare_regions', 'find_similar_pairs', 'analyze_pair_over_windows', 'get_region_slices']
+const toolNames = ['get_dataset_summary', 'get_region_info', 'get_timeseries', 'compare_regions', 'find_similar_pairs', 'analyze_pair_over_windows', 'get_region_slices', 'analyze_regions_detailed']
 export function pending(phase: CommandPhase) { return phase === 'requesting' || phase === 'applying' }
+
+export function interfaceState(phase: CommandPhase, connected: boolean, enabled: boolean, busy: boolean, preview = false): CoreState {
+  if (phase === 'error' || !connected) return 'error'
+  if (phase === 'requesting' || busy) return 'processing'
+  if (phase === 'applying') return 'analyzing'
+  if (preview) return 'preview'
+  return enabled ? 'standby' : 'paused'
+}
+
+export function correlationLabel(start: number, end: number, window: boolean) {
+  return `${window ? '이동 창' : start === 1 && end === 200 ? '전체 구간' : '분석 구간'} ${start}~${end}`
+}
 
 function integer(value: unknown, low: number, high: number): number {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < low || value > high) throw new Error('분석 응답의 범위가 올바르지 않습니다.')
@@ -40,13 +53,14 @@ export function viewSelection(reply: AIReply): StageSelection | null {
   // Prefer the final explicit calculation over supporting info tools in the same batch.
   for (const result of reply.results) {
     const p = result.parameters
-    if (result.tool === 'compare_regions' || result.tool === 'analyze_pair_over_windows') {
+    if (result.tool === 'compare_regions' || result.tool === 'analyze_pair_over_windows' || result.tool === 'analyze_regions_detailed') {
       selection = pairSelection(p.region_a, p.region_b, p)
       if (result.tool === 'compare_regions') selection.comparison = result.data as unknown as Comparison
       else {
         selection.window = integer(p.window ?? 50, 3, selection.end! - selection.start! + 1)
         selection.step = integer(p.step ?? 10, 1, selection.end! - selection.start! + 1)
-        selection.windowResult = result.data as unknown as WindowResult
+        selection.windowResult = (result.tool === 'analyze_regions_detailed' ? result.data.windows : result.data) as unknown as WindowResult
+        if (result.tool === 'analyze_regions_detailed') selection.comparison = result.data.comparison as unknown as Comparison
       }
     }
   }
@@ -74,6 +88,7 @@ export function aiErrorMessage(code: string): string {
     gateway_http_401: 'Gateway 인증을 확인해 주세요.', gateway_http_403: '해당 모델의 사용 권한을 확인해 주세요.',
     gateway_http_402: 'Gateway 크레딧을 확인해 주세요.', gateway_http_429: 'Gateway 사용 제한에 도달했습니다. 자동 재시도하지 않습니다.',
     gateway_connection_or_json_error: 'Gateway 응답을 확인하지 못했습니다. 이미 과금됐을 수 있어 자동 재전송하지 않습니다.',
+    invalid_grounded_explanation: '계산은 완료했지만 설명 응답의 형식이나 근거를 확인하지 못했습니다. 계산 결과를 확인해 주세요.',
   }
   return messages[code] ?? '요청을 완료하지 못했습니다. 자동 재전송하지 않았습니다.'
 }

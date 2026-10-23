@@ -34,7 +34,8 @@
     ],
     "gain": "0.8 + 1.2 * strength",
     "zero": "Selected region remains visible. Selection is independent of signal.",
-    "data": "No timeseries in model. Host app supplies normalized display strength; magnitude is not proof of activation increase."
+    "data": "No timeseries in model. Host app supplies normalized display strength; magnitude is not proof of activation increase.",
+    "scope": "One scalar per ROI, shared by all surface vertices and particles; independent across ROIs and hemispheres."
   },
   "camera": {
     "projection": "orthographic",
@@ -47,13 +48,13 @@
     "presets_gltf": {
       "hero": [
         0,
-        7.8,
-        -2.4
+        7.2,
+        3.5
       ],
       "oblique": [
-        4.8,
-        5,
-        -2.6
+        5.2,
+        4.2,
+        4.4
       ],
       "lateral_left": [
         7.5,

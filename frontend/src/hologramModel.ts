@@ -1,7 +1,8 @@
 import { Quaternion, Vector3 } from 'three'
 
 export const cameraPresets = {
-  default: { label: '기본 사선', position: [0, 3.2, 7.333], up: [0, 1, 0] },
+  default: { label: '기본 사선', position: [0, 7.2, 3.5], up: [0, 1, 0] },
+  oblique: { label: '내부 사선', position: [5.2, 4.2, 4.4], up: [0, 1, 0] },
   top: { label: '위', position: [0, 8, 0], up: [0, 0, -1] },
   front: { label: '앞', position: [0, 0, 8], up: [0, 1, 0] },
   back: { label: '뒤', position: [0, 0, -8], up: [0, 1, 0] },
@@ -9,6 +10,10 @@ export const cameraPresets = {
   right: { label: '우측', position: [-8, 0, 0], up: [0, 1, 0] },
 } as const
 export type CameraView = keyof typeof cameraPresets
+
+export function preferredBrainView(ids: readonly number[]): CameraView {
+  return ids.some(id => [7, 9, 10].includes((id - 1) % 10 + 1)) ? 'oblique' : 'default'
+}
 
 export function cameraPoseBetween(from: readonly number[], to: readonly number[], t: number, fromUp: readonly number[] = [0, 1, 0], toUp: readonly number[] = [0, 1, 0]) {
   const a = new Vector3().fromArray(from), b = new Vector3().fromArray(to)

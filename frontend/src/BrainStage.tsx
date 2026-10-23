@@ -1,11 +1,12 @@
 import { Suspense, useCallback, useMemo, useRef, useEffect, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
+import { createPortal } from 'react-dom'
 import SchematicBrain, { BrainBloom, BrainOrbit, clearBrainModel } from './SchematicBrain.tsx'
 import { displayColor, maskBoundary } from './brainVisual.ts'
 import { SceneBoundary } from './CoreScene.tsx'
 import type { SlicePlane, StageData } from './stageData.ts'
 import { signalStrength } from './analysisModel.ts'
-import { cameraPresets } from './hologramModel.ts'
+import { cameraPresets, preferredBrainView } from './hologramModel.ts'
 import type { CameraView } from './hologramModel.ts'
 import type { Region } from './api.ts'
 import { maskOverlay } from './model.ts'
@@ -41,13 +42,19 @@ export function SliceCanvas({ plane, region, regions, label, values = [] }: { pl
   return <canvas ref={canvas} role="img" aria-label={label} />
 }
 
-export default function BrainStage({ data, sample, active, reduced, onReady: reportReady, onError }: {
-  data: StageData; sample: number; active: boolean; reduced: boolean; onReady: () => void; onError: () => void;
+export default function BrainStage({ data, sample, active, reduced, onReady: reportReady, onError, toolbarTarget }: {
+  data: StageData; sample: number; active: boolean; reduced: boolean; onReady: () => void; onError: () => void; toolbarTarget: HTMLDivElement | null;
 }) {
-  const [view, setView] = useState<CameraView>('default'), [revision, setRevision] = useState(0), [manual, setManual] = useState(false), [ready, setReady] = useState(false)
+  const regionIds = data.comparison.regions.map(region => region.label_id)
+  const selectionKey = regionIds.join(',')
+  const suggestedView = preferredBrainView(regionIds)
+  const [view, setView] = useState<CameraView>(suggestedView), [revision, setRevision] = useState(0), [manual, setManual] = useState(false), [ready, setReady] = useState(false)
   const onManual = useCallback(() => setManual(true), [])
   const onHome = useCallback(() => { setView('default'); setManual(false); setRevision(value => value + 1) }, [])
   const [settled, setSettled] = useState(false)
+  useEffect(() => {
+    setView(suggestedView); setManual(false); setSettled(false); setRevision(value => value + 1)
+  }, [selectionKey, suggestedView])
   const onSettled = useCallback(() => setSettled(true), [])
   const onReady = useCallback(() => setReady(true), [])
   useEffect(() => { if (ready && settled) reportReady() }, [ready, settled, reportReady])
@@ -63,6 +70,6 @@ export default function BrainStage({ data, sample, active, reduced, onReady: rep
     </Canvas>
     {!ready && <span className="brain-loading" role="status">3D 모형 준비 중</span>}
     </SceneBoundary>
-    <div className="brain-orbit-tools"><span>드래그 회전 · 휠 확대</span><div role="group" aria-label="뇌 시점">{(Object.keys(cameraPresets) as CameraView[]).map(key => <button key={key} aria-pressed={!manual && view === key} onClick={() => { setView(key); setManual(false); setRevision(value => value + 1) }}>{cameraPresets[key].label}</button>)}</div></div>
+    {toolbarTarget && createPortal(<div className="brain-orbit-tools"><span>드래그 회전 · 휠 확대</span><div role="group" aria-label="뇌 시점">{(Object.keys(cameraPresets) as CameraView[]).map(key => <button key={key} aria-pressed={!manual && view === key} onClick={() => { setView(key); setManual(false); setRevision(value => value + 1) }}>{cameraPresets[key].label}</button>)}</div></div>, toolbarTarget)}
   </div>
 }

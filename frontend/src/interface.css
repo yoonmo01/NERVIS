@@ -68,11 +68,7 @@
 .command-pairs button { display:block; width:100%; text-align:left; padding:6px 0; color:#b0d5e5; font-size:10px; }
 .command-pairs b { margin-left:8px; }
 .command-pairs small { display:block; color:#72a3b6; font-size:9px; }
-.common-interface .command-signals { width:100%; height:90px; display:block; stroke:none; }
-.ai-status-refresh { position:absolute; right:36px; bottom:54px; font-size:9px; color:#7297aa; }
-.app--analysis .conversation-result { right:auto; left:calc(var(--analysis-side,35px) + 250px); top:calc(var(--analysis-top,84px) + 70px); width:310px; max-height:calc(100svh - 330px); }
-@media(max-width:1400px) { .app--analysis .conversation-result { left:270px; width:280px; } }
-@media(max-width:1000px) { .app--analysis .conversation-result { left:auto; right:24px; top:110px; } }
+.command-signals { width:100%; height:90px; display:block; stroke:none; }
 @media(max-width:650px) { .conversation-result,.app--analysis .conversation-result { right:20px; left:auto; top:100px; width:calc(100vw - 40px); max-height:260px; } }
 .common-interface button,.common-interface textarea {
   pointer-events:auto;

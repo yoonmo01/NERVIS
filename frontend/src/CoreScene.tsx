@@ -1,10 +1,11 @@
 import { Component, useMemo, useRef } from 'react'
 import type { ReactNode, RefObject } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { AdditiveBlending, DoubleSide, Group, MeshBasicMaterial, PointsMaterial, RGBAFormat, SpriteMaterial } from 'three'
-import { coreMotion, makeCoreGeometry } from './model.ts'
+import { AdditiveBlending, Color, DoubleSide, Group, MeshBasicMaterial, PointsMaterial, RGBAFormat, SpriteMaterial } from 'three'
+import { coreMotion, coreStateColors, makeCoreGeometry } from './model.ts'
+import type { CoreState } from './model.ts'
 
-function Core({ level, reduced }: { level: RefObject<number>; reduced: boolean }) {
+function Core({ level, reduced, state }: { level: RefObject<number>; reduced: boolean; state: CoreState }) {
   const geometry = useMemo(makeCoreGeometry, [])
   const shell = useRef<Group>(null)
   const inner = useRef<Group>(null)
@@ -13,17 +14,26 @@ function Core({ level, reduced }: { level: RefObject<number>; reduced: boolean }
   const glow = useRef<SpriteMaterial>(null)
   const dust = useRef<PointsMaterial>(null)
   const envelope = useRef(0)
-  useFrame(({ clock, pointer }, delta) => {
+  const rotationTime = useRef(0)
+  const color = useMemo(() => new Color(coreStateColors[state]), [state])
+  useFrame(({ pointer }, delta) => {
     if (!shell.current || !inner.current || !bands.current) return
     envelope.current += ((reduced ? 0 : level.current) - envelope.current) * Math.min(delta * 12, 1)
-    const motion = coreMotion(clock.elapsedTime, envelope.current, reduced)
+    rotationTime.current += reduced ? 0 : delta * (state === 'processing' ? 1.6 : state === 'analyzing' ? 1.25 : state === 'error' ? .4 : 1)
+    const motion = coreMotion(rotationTime.current, envelope.current, reduced, state)
     const scale = shell.current.scale.x + (motion.scale - shell.current.scale.x) * Math.min(delta * 9, 1)
     shell.current.scale.setScalar(scale)
     shell.current.rotation.set(0.25 + (reduced ? 0 : pointer.y * 0.03), motion.shellY, 0.12)
     inner.current.rotation.set(0.7, motion.innerY, 0.3)
     bands.current.rotation.set(0.5, 0.35, motion.bandZ)
+    for (const group of [inner.current, bands.current]) group.traverse(object => {
+      if ('material' in object) {
+        const material = object.material as MeshBasicMaterial
+        material.color?.lerp(color, reduced ? 1 : Math.min(delta * 4, 1))
+      }
+    })
     if (panels.current) panels.current.opacity = motion.panels
-    if (glow.current) glow.current.opacity = Math.min(1, motion.glow)
+    if (glow.current) { glow.current.opacity = Math.min(1, motion.glow); glow.current.color.lerp(color, reduced ? 1 : Math.min(delta * 4, 1)) }
     if (dust.current) dust.current.opacity = motion.dust
   })
   return <group ref={shell}>
@@ -77,13 +87,13 @@ export class SceneBoundary extends Component<{ children: ReactNode; onError?: ()
   }
 }
 
-export default function CoreScene({ level, reduced }: { level: RefObject<number>; reduced: boolean }) {
+export default function CoreScene({ level, reduced, state }: { level: RefObject<number>; reduced: boolean; state: CoreState }) {
   return <SceneBoundary>
     {/* Measure layout size so the entrance scale does not shrink the canvas twice. */}
     <Canvas camera={{ position: [0, 0, 5.8], fov: 43 }} dpr={[1, 1.5]} resize={{ debounce: 0, offsetSize: true }}
       gl={{ alpha: true, antialias: true, powerPreference: 'high-performance' }}
       fallback={<div className="webgl-fallback">WebGL을 사용할 수 없습니다.</div>}>
-      <Core level={level} reduced={reduced} />
+      <Core level={level} reduced={reduced} state={state} />
     </Canvas>
   </SceneBoundary>
 }

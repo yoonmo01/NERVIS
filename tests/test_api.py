@@ -34,7 +34,8 @@ class ApiTests(PackageCase):
         cases = [("timeseries", {"region_ids": [2, 1], "start": 11, "end": 20}, analysis.get_timeseries),
                  ("compare", {"region_a": 1, "region_b": 2, "method": "spearman"}, analysis.compare_regions),
                  ("pairs", {"scope": "homologous", "limit": 3}, analysis.find_similar_pairs),
-                 ("windows", {"region_a": 1, "region_b": 2, "window": 40}, analysis.analyze_pair_over_windows)]
+                 ("windows", {"region_a": 1, "region_b": 2, "window": 40}, analysis.analyze_pair_over_windows),
+                 ("detailed", {"region_a": 1, "region_b": 11, "start": 51, "end": 150, "window": 40, "step": 5}, analysis.analyze_regions_detailed)]
         for route, body, function in cases:
             with self.subTest(route=route):
                 response = self.client.post(f"/api/analysis/{route}", json=body)
@@ -67,7 +68,9 @@ class ApiTests(PackageCase):
                  ("pairs", {"scope": "homologous", "limit": 11}),
                  ("pairs", {"limit": True}), ("pairs", {"end": 2}),
                  ("windows", {"region_a": 1, "region_b": 2, "end": 40}),
-                 ("windows", {"region_a": 1, "region_b": 2, "step": 0})]
+                 ("windows", {"region_a": 1, "region_b": 2, "step": 0}),
+                 ("detailed", {"region_a": 1, "region_b": 2, "end": 3, "step": 10}),
+                 ("detailed", {"region_a": 1, "region_b": 2, "window": 201})]
         for route, body in cases:
             with self.subTest(route=route, body=body):
                 self.assertEqual(self.client.post(f"/api/analysis/{route}", json=body).status_code, 422)

@@ -1,5 +1,6 @@
 """Synthetic data, fake credentials and MockTransport only. Never calls BAZE."""
 import json
+import os
 from unittest.mock import patch
 
 import httpx
@@ -33,23 +34,71 @@ class AITests(PackageCase):
         gateway = Gateway(Settings("fake-test-key", "synthetic-model", budget), client=client)
         return AnalysisAI(gateway)
 
-    def test_tool_loop_executes_real_local_function_without_uploading_result(self):
+    def test_tool_loop_sends_only_approved_summary_and_validates_grounded_answer(self):
         ai = self.make_ai([response([call()]), response([{"type": "message", "content": [
-            {"type": "output_text", "text": "분석 요청을 처리했습니다."}]}])])
+            {"type": "output_text", "text": json.dumps({"answer": "두 신호가 같은 방향으로 변했습니다.", "used_fact_ids": ["call_1.comparison"]})}]}])])
         result = ai.run(self.load(), "전전두피질의 좌우를 비교해줘", {})
         self.assertEqual(result["results"][0]["data"]["analysis"], "compare_regions")
         from backend.analysis import compare_regions
         self.assertEqual(result["results"][0]["data"], compare_regions(self.load(), 1, 11))
         self.assertEqual(result["gateway_requests"], 2)
-        self.assertEqual(result["model_acknowledgement"], "분석 요청을 처리했습니다.")
+        self.assertEqual(result["model_acknowledgement"], "두 신호가 같은 방향으로 변했습니다.")
         second = json.loads(self.requests[1].content)
         feedback = next(x for x in second["input"] if x.get("type") == "function_call_output")
-        self.assertEqual(json.loads(feedback["output"]), {"status": "ok"})
+        summary = json.loads(feedback["output"])
+        self.assertIn('call_1.comparison', summary['facts'])
+        self.assertEqual(summary['facts']['call_1.comparison']['correlation'], result['results'][0]['data']['correlation'])
         outbound = b"".join(r.content for r in self.requests).decode()
-        for forbidden in ("thickness_mm", "volume_mm3", "Synthetic_", "dataset_version", '"bold"', '"zscore"', '"correlation":'):
+        for forbidden in ('"bold": [', '"zscore": [', '"samples": [', '"t1_path"', '"mask_path"'):
             self.assertNotIn(forbidden, outbound)
         self.assertFalse(second["store"])
         self.assertEqual(second["tool_choice"], "none")
+
+    def test_invalid_fact_references_or_unstructured_explanation_preserve_local_result(self):
+        for text in ('완료', json.dumps({'answer': '설명', 'used_fact_ids': ['made-up']})):
+            ai = self.make_ai([response([call()]), response([{'type': 'message', 'content': [{'type': 'output_text', 'text': text}]}])])
+            result = ai.run(self.load(), '비교', {})
+            self.assertEqual(result['status'], 'partial')
+            self.assertEqual(result['warning'], 'invalid_grounded_explanation')
+            self.assertIsNone(result['model_acknowledgement'])
+            self.assertEqual(len(result['results']), 1)
+
+    def test_unlimited_app_mode_and_disabled_mode_do_not_repurpose_legacy_zero(self):
+        enabled = Settings('fake', 'synthetic', None, enabled=True)
+        self.assertIsNone(enabled.max_requests)
+        gateway = Gateway(enabled, client=self.enterContext(httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200, json=response([]))))))
+        for _ in range(12):
+            gateway.send('responses/', {})
+        self.assertEqual(gateway.used, 12)
+        disabled = Gateway(Settings('fake', 'synthetic', None, enabled=False))
+        with self.assertRaises(AIError):
+            disabled.send('responses/', {})
+
+    def test_activation_flag_migration_and_test_override_are_explicit(self):
+        file = self.package.parent / 'fake-settings.env'
+        file.write_text('BAZE_API_KEY=fake\nNERVIS_LLM_MODEL=synthetic\nNERVIS_AI_MAX_REQUESTS=0\n', encoding='utf-8')
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertFalse(Settings.load(file).active)
+            file.write_text(file.read_text()+'NERVIS_AI_ENABLED=true\n', encoding='utf-8')
+            self.assertTrue(Settings.load(file).active)
+            self.assertIsNone(Settings.load(file).max_requests)
+            self.assertEqual(Settings.load(file, max_requests=2).max_requests, 2)
+            self.assertEqual(Settings.load(file, max_requests=2).active, True)
+            file.write_text(file.read_text().replace('ENABLED=true', 'ENABLED=false'), encoding='utf-8')
+            self.assertFalse(Settings.load(file).active)
+            file.write_text(file.read_text().replace('ENABLED=false', 'ENABLED=invalid'), encoding='utf-8')
+            with self.assertRaises(ValueError):
+                Settings.load(file)
+
+    def test_detailed_summary_does_not_transmit_series_or_image_metadata(self):
+        ai = self.make_ai([response([call('analyze_regions_detailed')]), response([])])
+        result = ai.run(self.load(), '전전두피질 자세히', {})
+        feedback = json.loads(json.loads(self.requests[1].content)['input'][-1]['output'])
+        self.assertIn('call_1.pca', feedback['facts'])
+        text = json.dumps(feedback)
+        for field in ('"comparison":', '"bold": [', '"samples":', '"t1_path"', '"color_rgb"'):
+            self.assertNotIn(field, text)
+        self.assertEqual(result['results'][0]['tool'], 'analyze_regions_detailed')
 
     def test_registry_uses_strict_models(self):
         self.assertTrue(issubclass(TOOL_MODELS["compare_regions"], RequestModel))

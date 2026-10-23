@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { checkedReply, viewSelection, pending } from './conversation.ts'
+import { checkedReply, viewSelection, pending, interfaceState, correlationLabel } from './conversation.ts'
 import type { AIReply, LocalResult } from './conversation.ts'
 
 const result = (tool: string, parameters: Record<string, unknown>, data = {}): LocalResult => ({ result_id: tool, tool, parameters, data: { analysis: tool, dataset_version: 'v', ...data } })
@@ -40,4 +40,23 @@ test('bad versions, repeated IDs and invalid view parameters fail instead of cha
   }
   assert.equal(pending('requesting'), true); assert.equal(pending('applying'), true)
   assert.equal(pending('error'), false); assert.equal(pending('complete'), false)
+})
+
+test('detailed results reuse their exact comparison and windows without changing pair or scope', () => {
+  const comparison = { correlation: .3 }, windows = { windows: [] }
+  const r = result('analyze_regions_detailed', { region_a: 6, region_b: 16, start: 51, end: 150, window: 40, step: 5 }, { comparison, windows })
+  const selection = viewSelection(checkedReply(reply(r), 'v'))!
+  assert.equal(selection.comparison, comparison); assert.equal(selection.windowResult, windows)
+  assert.equal(selection.window, 40); assert.equal(selection.start, 51)
+})
+
+test('one state drives the orb and label and actual ranges label correlation', () => {
+  assert.equal(interfaceState('requesting', true, true, false), 'processing')
+  assert.equal(interfaceState('applying', true, true, false), 'analyzing')
+  assert.equal(interfaceState('error', true, true, false), 'error')
+  assert.equal(interfaceState('complete', true, true, false), 'standby')
+  assert.equal(interfaceState('idle', true, false, false), 'paused')
+  assert.equal(correlationLabel(1, 200, false), '전체 구간 1~200')
+  assert.equal(correlationLabel(51, 150, false), '분석 구간 51~150')
+  assert.equal(correlationLabel(51, 100, true), '이동 창 51~100')
 })

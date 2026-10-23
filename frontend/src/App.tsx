@@ -7,8 +7,8 @@ import { INTRO, introStage, toggleComposer } from './model.ts'
 import type { ComposerPanel, IntroStage } from './model.ts'
 import { useAudioPreview } from './audio.ts'
 import { Composer, Icon } from './Interface.tsx'
-import ConversationPanel from './ConversationPanel.tsx'
-import { checkedReply, viewSelection, pending, aiErrorMessage } from './conversation.ts'
+import ConversationPanel, { CalculationResults } from './ConversationPanel.tsx'
+import { checkedReply, viewSelection, pending, aiErrorMessage, interfaceState } from './conversation.ts'
 import type { AIStatus, AIReply, CommandPhase, ViewContext, ViewRequest } from './conversation.ts'
 import type { StageSelection } from './stageData.ts'
 
@@ -40,6 +40,8 @@ export default function App() {
   const [aiStatus, setAIStatus] = useState<AIStatus | null>(null)
   const [phase, setPhase] = useState<CommandPhase>('idle')
   const [reply, setReply] = useState<AIReply | null>(null)
+  const [resultOpen, setResultOpen] = useState(true)
+  const [analysisTab, setAnalysisTab] = useState<'mri' | 'response' | 'calculations'>('mri')
   const [command, setCommand] = useState('')
   const [requestError, setRequestError] = useState('')
   const [stageRequest, setStageRequest] = useState<ViewRequest | null>(null)
@@ -87,7 +89,7 @@ export default function App() {
     flight.current = true; expectedStage.current = null
     const submitted = draft.trim(), current = new AbortController()
     controller.current = current
-    setCommand(submitted); setReply(null); setRequestError(''); setPhase('requesting')
+    setCommand(submitted); setReply(null); setRequestError(''); setPhase('requesting'); setResultOpen(true); setAnalysisTab('response')
     const timeout = setTimeout(() => current.abort(), 70000)
     try {
       const response = checkedReply(await api<AIReply>('/api/ai/chat', current.signal,
@@ -105,7 +107,7 @@ export default function App() {
       setPhase('error'); flight.current = false
     } finally {
       clearTimeout(timeout); controller.current = null
-      if (mounted.current) { setAIStatus(null); void refreshAI() }
+      if (mounted.current) void refreshAI()
     }
   }
   const audio = useAudioPreview()
@@ -145,41 +147,47 @@ export default function App() {
   const ready = stage === 'ready'
   const locked = !ready || audio.active || pending(phase) || (view === 'analysis' && analysisBusy)
   const canSend = !locked && connection === 'ready' && !!aiStatus?.enabled && !aiStatus.busy
-  const inputStatus = !aiStatus ? 'AI 서버 상태를 확인해 주세요. 분석 자료·비밀값은 입력하지 마세요.' : aiStatus.busy ? '서버가 이전 요청을 처리 중입니다.' : !aiStatus.enabled ? '텍스트 연결 준비됨 · 외부 AI 호출 꺼짐 또는 예산 소진' : `텍스트 명령 입력 · Shift+Enter 줄바꿈 · 남은 호출 ${aiStatus.remaining_process_requests}회`
+  const inputStatus = !aiStatus ? 'AI 서버 연결을 확인해 주세요.' : aiStatus.busy ? '이전 요청을 처리 중입니다.' : !aiStatus.enabled ? 'AI가 비활성 상태입니다. 서버 설정을 확인해 주세요.' : ''
+  const corePhase = phase === 'complete' && reply?.status === 'partial' ? 'error' : phase
+  const coreState = interfaceState(corePhase !== 'error' && corePhase !== 'requesting' && view === 'analysis' && analysisBusy ? 'applying' : corePhase, connection !== 'error', !!aiStatus?.enabled, !!aiStatus?.busy, audio.active)
+  const stateLabels = { standby: 'STANDBY', processing: 'PROCESSING', analyzing: 'ANALYZING', error: 'ERROR', paused: 'PAUSED', preview: 'AUDIO PREVIEW' }
+  const selectResult = (selection: StageSelection) => { if (!flight.current && !locked) { setRequestError(''); applySelection(selection) } }
+  const resultPanel = phase === 'idle' ? null : <ConversationPanel phase={phase} command={command} reply={reply} error={requestError} regions={data?.regions ?? []} locked={locked} docked={view === 'analysis'}
+    onSelect={selectResult}
+    onClose={() => { if (!flight.current) setResultOpen(false) }} />
+  const calculations = reply?.results.length ? <CalculationResults reply={reply} regions={data?.regions ?? []} locked={locked} onSelect={selectResult} /> : null
 
   return <div className={`app app--${stage} app--${view}${panel ? ' app--composer-open' : ''}${audio.active ? ' app--preview' : ''}`}>
     <div className="background-grid" aria-hidden="true" />
     <header className="interface-header">
       <div className="brand"><h1>NERVIS</h1><span>NEURAL DATA EXPLORER</span></div>
       <div className="header-center"><i />INTERACTIVE NEURAL INTERFACE<i /></div>
-      <div className="connection-chip" aria-live="polite"><span className={`live-dot ${connection}`} />
-        {audio.active ? '로컬 오디오 미리보기' : phase === 'requesting' ? 'NERVIS 요청 처리 중' : phase === 'applying' || analysisBusy ? '분석 화면 준비 중' : aiStatus?.busy ? '서버 요청 처리 중' : aiStatus?.enabled ? `텍스트 연결 · ${aiStatus.model}` : '텍스트 연결 · AI 호출 꺼짐'}</div>
+      <div className={`connection-chip state-${coreState}`} aria-live="polite"><span className="live-dot" />NERVIS / {stateLabels[coreState]}</div>
     </header>
 
     {(stage === 'title' || stage === 'dock') && <div className="intro-caption"><span>AN INTERFACE TO EXPLORE</span><p>기록 속의 관계를 발견하다</p></div>}
     {!ready && <button className="skip-intro" onClick={() => setSkipped(true)}>인트로 건너뛰기 <span>↗</span></button>}
 
-    <div className="core-stage" aria-hidden="true">
+    <div className={`core-stage state-${coreState}`} aria-hidden="true">
       <div className="core-aura" />
       <div className="orbit-guide"><span className="orbit-notch n1" /><span className="orbit-notch n2" /><span className="orbit-notch n3" /></div>
-      {(stage === 'core' || ready) && <CoreScene level={audio.level} reduced={reduced} />}
+      {(stage === 'core' || ready) && <CoreScene level={audio.level} reduced={reduced} state={coreState} />}
       <div className="core-crosshair ch-left" /><div className="core-crosshair ch-right" />
     </div>
 
     <main className={`screen-content${ready ? ' is-ready' : ''}`} inert={!ready}>
       <section className="home-screen" hidden={view !== 'home'} aria-label="NERVIS 대화 홈">
-        <div className="core-caption"><span className="live-dot" />{audio.active ? 'AUDIO-REACTIVE PREVIEW' : 'NERVIS / STANDBY'}<small>PROCEDURAL CORE · LOCAL RENDER</small></div>
+        <div className={`core-caption state-${coreState}`}><span className="live-dot" />NERVIS / {stateLabels[coreState]}<small>PROCEDURAL CORE · LOCAL RENDER</small></div>
       </section>
 
       {explored && data && <div className="analysis-container" inert={audio.active || pending(phase)} hidden={view !== 'analysis'}>
-        <AnalysisView key={stageRequest?.id ?? 'preview'} request={stageRequest} onApplied={onApplied} onContext={onContext} regions={data.regions} version={data.summary.dataset_version} active={view === 'analysis'} blocked={audio.active || phase === 'requesting'} reduced={reduced} onBusyChange={onStageBusy} />
+        <AnalysisView key={stageRequest?.id ?? 'preview'} request={stageRequest} onApplied={onApplied} onContext={onContext} regions={data.regions} version={data.summary.dataset_version} active={view === 'analysis'} blocked={audio.active || phase === 'requesting'} reduced={reduced} onBusyChange={onStageBusy} response={resultPanel} calculations={calculations} tab={analysisTab} onTab={setAnalysisTab} />
       </div>}
     </main>
 
     <div className={`common-interface${ready ? ' is-ready' : ''}`} inert={!ready}>
-      <ConversationPanel phase={phase} command={command} reply={reply} error={requestError} regions={data?.regions ?? []} locked={locked}
-        onSelect={selection => { if (!flight.current && !locked) { setRequestError(''); applySelection(selection) } }}
-        onClose={() => { if (!flight.current) { expectedStage.current = null; setPhase('idle'); setReply(null); setRequestError('') } }} />
+      {view === 'home' && resultOpen && resultPanel}
+      {view === 'home' && !resultOpen && resultPanel && <button className="result-reopen" onClick={() => setResultOpen(true)}>응답 다시 열기</button>}
       <Composer canSend={canSend} status={inputStatus} onSend={() => { void send() }} panel={panel} draft={draft} onDraft={setDraft} closable={view === 'analysis' || panel === 'voice'} locked={locked}
         onToggle={target => setPanel(current => toggleComposer(current, target, view))}
         onClose={() => setPanel(view === 'home' ? 'text' : null)} />
@@ -193,7 +201,7 @@ export default function App() {
         </button>
         <button className="replay-button" onClick={restart} disabled={locked}>시작 연출 다시 보기 ↗</button>
       </footer>
-      {(!aiStatus || !aiStatus.enabled) && ready && <button className="ai-status-refresh" disabled={pending(phase)} onClick={() => { void refreshAI() }}>AI 설정 상태 확인</button>}
+      {!aiStatus && ready && <div className="ai-connection-error" role="status">AI 서버 연결을 확인하지 못했습니다. <button disabled={pending(phase)} onClick={() => { void refreshAI() }}>다시 확인</button></div>}
       {connection === 'error' && <div className="shell-error" role="alert"><p>{connectionError}</p><button onClick={() => setRetry(v => v + 1)}>서버 연결 다시 확인</button></div>}
     </div>
     {audio.error && <p className="audio-error" role="alert">{audio.error}</p>}

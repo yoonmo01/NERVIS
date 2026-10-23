@@ -29,7 +29,7 @@ class AIAPITests(PackageCase):
 
     def test_command_route_runs_fake_model_and_existing_analysis(self):
         packets = [response([call()]), response([{"type": "message", "content": [
-            {"type": "output_text", "text": "완료했습니다."}]}])]
+            {"type": "output_text", "text": '{"answer":"두 영역의 신호 관계와 구조를 비교했습니다.","used_fact_ids":["call_1.comparison"]}'}]}])]
         gateway_client = self.enterContext(httpx.Client(transport=httpx.MockTransport(
             lambda request: httpx.Response(200, json=packets.pop(0)))))
         service = AnalysisAI(Gateway(Settings("fake", "synthetic", 2), client=gateway_client))
@@ -38,6 +38,7 @@ class AIAPITests(PackageCase):
         self.assertEqual(result.status_code, 200, result.text)
         self.assertEqual(result.json()["results"][0]["data"]["analysis"], "compare_regions")
         self.assertFalse(result.json()["screen_applied"])
+        self.assertEqual(result.json()['status'], 'ok')
         self.assertEqual(client.post("/api/ai/chat", json={"command": "다시 비교"}).status_code, 503)
 
     def test_disabled_invalid_cross_origin_and_busy_never_send(self):

@@ -1,49 +1,101 @@
-# AI analysis tool connection
+# AI analysis tools and result explanations
 
-## Current text integration (2026-10-23)
+## Current implementation — 2026-10-23
 
-Frontend text commands now reach `/api/ai/chat`. `GET /api/ai/status` reports only local model configuration, remaining process attempts and busy state; it never calls Gateway or validates live credentials. Budget0, busy or unknown status disables sending. Page loads never discover models or check account credits. Historical checkpoints below remain dated records.
+Commands reach POST `/api/ai/chat`. The first Responses request selects allowlisted tools,
+Python calculates locally, and a second request explains approved summary facts in Korean.
+`answer` and `used_fact_ids` are parsed from that final response; no `memory_update`, DB,
+conversation history, RAG, STT/TTS or deployment is included. The local HTTP field
+`model_acknowledgement` retains its name for compatibility but now contains the explanation.
+A model clarification without tools remains plain text. No screen-completion claim is inferred.
 
-Enter submits only from the textarea; Shift+Enter inserts a newline and IME composition does not submit. Messages are limited to600 characters. A synchronous duplicate guard covers requesting → applying → complete/error, including MRI/GLB loading and initial camera readiness. Controls reopen after completion. A70-second wait deadline never automatically repeats the model request; local status is rechecked. Failed drafts and completed local results survive errors. Scene-only retries make no model call and clear failed GLB cache entries.
+Eight strict tools: get_dataset_summary, get_region_info, get_timeseries, compare_regions,
+find_similar_pairs, analyze_pair_over_windows, get_region_slices, analyze_regions_detailed.
+All arguments in a batch (maximum six calls) are validated before execution. Additional
+rounds, arbitrary paths/code/tools and automatic retries/model fallback are forbidden.
 
-All seven tools have local result displays. Pair/range/method/window arguments reach the stage; returned calculations are reused and missing display data uses local routes only. Ranking offers local pair selection. Single/multi-region and1~2-sample signals remain visible in the result inspector. MRI tools preserve a registered recommended slice. Model text is an acknowledgement, not interpretation of measurements it never received. Context includes only selected IDs/sample bounds, without history, images or local numeric results.
+Basic comparison returns range-specific correlation plus thickness/volume and their differences.
+Detailed analysis adds both correlations, relative structure differences, raw/global-z-score
+mean/std/IQR/RMS/adjacent-change RMS, moving-window correlations, all/homologous rankings,
+selection-related top pairs, major selected/all-region sample points, autocorrelation, Hann and
+boxcar spectral peaks, and both raw-centered and within-range-standardized all-20-region PCA.
+All modules run within the requested sample interval. Structure is fixed independently of it.
+Local POST `/api/analysis/detailed` exposes the same compound function without AI calls.
 
-MockTransport browser QA uses fake credentials with real local functions/data and a visible test banner. It does not establish real gpt-5.4-mini frontend compatibility. The earlier5-call real allowance is exhausted; a new scoped approval is required before any new Gateway request. The real `.env` and disabled budget remain unchanged. STT/TTS, wake word, briefing, DB and full conversation history are outside this step.
+Missing/constant metrics return unavailable with reasons, not invented zeros. Spectrum peaks
+require at least eight samples. Autocorrelation retains at least three overlapping samples.
+Spectral units are cycles/sample, never Hz; actual sample interval is unknown. PCA uses all20
+regions in the requested interval, not an anatomical network. The first three PCA components
+have selected/top loadings; all explained-variance ratios remain local. Major points are up to
+five peaks spaced at least10 samples apart; changes refer to the later sample. Relative
+structure difference is 100*(b-a)/((a+b)/2), with null for a zero denominator. These are
+strictly descriptive statistics, not clinical or cognitive inferences.
 
-## Implemented scope
+## Outbound data boundary
 
-`backend/ai.py` defines a bounded BAZE Responses client, seven strict analysis tools and the command loop. `POST /api/ai/chat` in `backend/app.py` accepts commands and explicit selection context. This step does not connect the frontend, microphone, TTS, wake word, daily briefing or conversational history. Restart the backend to load new routes.
+The user approved sending analysis summary metrics to BAZE for explanations.
+`backend/ai_facts.py` constructs bounded facts: region IDs/Korean names/hemispheres,
+validated arguments, dataset version, status, units/normalization, correlation, structural
+measurements/differences, signal distribution, window extrema, up to five ranked pairs,
+major points, selected autocorrelation lags1/5/10/20, spectral peaks and PCA summaries.
+The final prompt asks for target/range → main results → meaning, avoiding completion-only
+phrasing and promises to display results. It requests3–5 sentences for basic results and
+sufficient detail for detailed results. Missing conditions are explained when material.
 
-The seven tools call existing `backend.analysis` functions: `get_dataset_summary`, `get_region_info`, `get_timeseries`, `compare_regions`, `find_similar_pairs`, `analyze_pair_over_windows`, `get_region_slices`. Names are allowlisted; arguments use strict Pydantic models. A single batch has at most six calls. All calls are validated before execution. Unknown tools, duplicate call IDs and extra arguments stop the batch.
+Never transmit MRI/mask pixels, file paths, raw/full signal arrays, file hashes, actual
+credentials or identifying information. Complete calculations remain on local HTTP only.
+Commands are for instructions, not pasted private files/keys. This is not an automatic
+personal-data classifier. `store:false` is requested; provider retention is not verified.
 
-## Data boundary
+Explanation JSON must contain only answer and used_fact_ids. References must be unique,
+exist in the supplied fact map, and be nonempty when facts are available. Invalid output
+returns status:partial with intact local calculations and no automatic repeat. Reference
+validation does not prove every natural-language interpretation is correct. Actual model
+quality and this new output protocol still need a separately approved small live test.
 
-Only a command (up to 600 characters), generic region definitions, selected IDs/range and tool schemas are sent to the model. Commands are intended for instructions, not pasted datasets, credentials or identifying information; this is not a semantic personal-data classifier. No file attachment or arbitrary path/code tool exists.
+## Activation, limits and status
 
-Full analysis results return only to the local HTTP caller. The model receives its own preceding output plus matching `function_call_output` statuses (`ok`/`unavailable`), never measurements, signals, MRI, masks or dataset hashes. `store:false` requests that Responses state not be stored; it does not establish the provider's full retention policy. A model acknowledgement is not a scientific explanation of unseen results and is not proof the screen has updated. The HTTP response explicitly has `screen_applied:false`.
+`NERVIS_AI_ENABLED=false` disables the app. Setting it to true explicitly enables ordinary
+user commands without a total call-count cap. The real .env is not edited by this change.
+If AI_ENABLED is absent, the old MAX_REQUESTS=0..10 behavior remains; legacy0 still means
+off, never unlimited. Explicit developer-test max_requests overrides remain bounded even
+when the app is enabled. `.env.example` explains migration and restart/OS override behavior.
 
-## Cost and execution limits
+One command uses at most two requests: routing max_output_tokens512, explanation1200.
+Input is billed as well; there is no guaranteed currency cap. No retries, redirects,
+proxy discovery, fallback, model discovery or account-balance polling. Destination is
+fixed to the documented BAZE Gateway. Failed attempts count against bounded tests.
+One command runs at a time (409 on concurrency), no queue. Timeout does not prove no charge.
+Only numeric usage/billing receipts are retained; secrets/provider error bodies are not logged.
 
-- Destination is fixed to `https://factchat-cloud.mindlogic.ai/v1/gateway`; another configured destination is rejected before sending a key. Redirects, environment proxy discovery and automatic retries are disabled.
-- `NERVIS_AI_MAX_REQUESTS=0` by default. Configure a positive process budget only after approval. The hard maximum is 10. Failed/time-out attempts also consume this in-memory budget.
-- A command has at most two model requests, each `max_output_tokens:512`. Input tokens are billed too; these are token/call limits, not a guaranteed credit/currency cap. There is no automatic model discovery, fallback or retry.
-- Only one command executes at a time per service. Concurrent commands return409 rather than queueing.
-- First-request failures stop without running analysis. If local analysis completes but the acknowledgement fails or requests more tools, return the local results with `status:partial`; do not execute another round.
-- Numeric usage/billing fields are retained when the provider supplies them; error bodies, keys and headers are not logged. A timeout can still incur provider charges.
-- The budget is per process and resets on restart; it is not a durable account-wide spending ledger. Use one local worker and do not restart to circumvent an approved budget.
+GET `/api/ai/status` is local only, not authentication or credit verification. Remaining
+attempts are null in ordinary unlimited app mode. Auth errors, explicit credit errors,
+rate limits and network errors have separate UI messages. A429 alone never proves no credit.
+Previous real test allowances are exhausted; restarting or enabling the app does not authorize
+agent-issued paid tests. Current development validation uses synthetic tests/MockTransport.
 
-The real `.env` is unchanged. `.env.example` documents the disabled default. `Settings.load` reads the local root `.env` without interpolation, with environment variables taking precedence. No key is sent to Vite or returned by the endpoint.
+## Frontend behavior
 
-## Local HTTP format
+Current selected IDs and actual displayed sample range are sent with commands. Before any
+analysis there is no selected target (IDs[]); the model must ask when unspecified. An AI or
+manual selection becomes the current focus. Moving-window selection updates the range;
+playback cursor alone does not. There is no past-turn or old-ranking recall.
 
-```json
-{
-  "command": "전전두피질의 좌우를 비교해줘",
-  "context": {"selected_region_ids": [1, 11], "start": 1, "end": 200}
-}
-```
+The analysis left panel has MRI/response/calculation tabs under the orb. The docked response
+has no close button and contains only narrative/status, while calculations have their own tab.
+Switching tabs retains results without another model request. Detailed items and multiple tool
+results are selected one at a time; structure/statistics/windows use compact tables. Calculation
+conditions are collapsed. Ranking pair selection remains local. The brain and signal share one
+central frame. The home processing window is unchanged. Header and orb
+share STANDBY/PROCESSING/ANALYZING/ERROR/PAUSED, with blue shell, orange processing core,
+cyan applying core and red error core; reduced motion suppresses pulse/rotation. Audio preview
+remains labelled preview; no fake STT/TTS state. Stop is square, actual correlation range is
+explicit, and the generic fixed disclaimer/developer refresh button are removed.
 
-Local response includes `results` (tool name, validated parameters, result handle and actual data), `model_acknowledgement`, per-response `usage`, consumed/remaining process requests and `warning`. No DB/session/result-retrieval API is added; handles identify results in this response only. Follow-up commands can provide selected context, but history and cross-request result recall are not implemented.
+Duplicate/Enter/IME guards, failed-draft and local-result preservation, 70s timeout and local
+scene retry are maintained. Screen readiness still includes MRI/model/camera settlement.
+
+## Historical verification checkpoints (older scopes)
 
 ## Verification and live status (2026-10-22)
 

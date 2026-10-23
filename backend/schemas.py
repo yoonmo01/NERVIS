@@ -73,3 +73,17 @@ class WindowsRequest(CompareRequest):
         if self.window > count or self.step > count:
             raise ValueError("window and step must fit within the selected sample range")
         return self
+
+
+class DetailedRequest(CompareRequest):
+    window: Annotated[int | None, Field(ge=3, le=200)] = None
+    step: Annotated[int | None, Field(ge=1, le=200)] = None
+
+    @model_validator(mode="after")
+    def valid_detail_window(self) -> Self:
+        count = self.end-self.start+1
+        if self.window is not None and self.window > count:
+            raise ValueError("window must fit within the selected range")
+        if self.step is not None and self.step > count:
+            raise ValueError("step must fit within the selected range")
+        return self

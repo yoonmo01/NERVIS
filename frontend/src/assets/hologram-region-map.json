@@ -13,14 +13,14 @@
         "ROI_01_Prefrontal_L"
       ],
       "center_blender": [
-        0.5155646800994873,
-        -0.8431605100631714,
-        0.06368538737297058
+        0.46086108684539795,
+        -0.9356019496917725,
+        0.06574258208274841
       ],
       "center_gltf": [
-        0.5155646800994873,
-        0.06368538737297058,
-        0.8431605100631714
+        0.46086108684539795,
+        0.06574258208274841,
+        0.9356019496917725
       ],
       "suggested_view": "hero",
       "mapping_status": "AUTHORED_ANATOMICAL_PROXY_NOT_ATLAS",
@@ -36,14 +36,14 @@
         "ROI_02_Motor_Premotor_L"
       ],
       "center_blender": [
-        0.5534239411354065,
-        -0.30901843309402466,
-        0.4608153998851776
+        0.49871668219566345,
+        -0.34310823678970337,
+        0.47760120034217834
       ],
       "center_gltf": [
-        0.5534239411354065,
-        0.4608153998851776,
-        0.30901843309402466
+        0.49871668219566345,
+        0.47760120034217834,
+        0.34310823678970337
       ],
       "suggested_view": "hero",
       "mapping_status": "AUTHORED_ANATOMICAL_PROXY_NOT_ATLAS",
@@ -59,14 +59,14 @@
         "ROI_03_Somatosensory_L"
       ],
       "center_blender": [
-        0.5597279667854309,
-        0.12336893379688263,
-        0.4253371059894562
+        0.5089821815490723,
+        0.13644373416900635,
+        0.43935394287109375
       ],
       "center_gltf": [
-        0.5597279667854309,
-        0.4253371059894562,
-        -0.12336893379688263
+        0.5089821815490723,
+        0.43935394287109375,
+        -0.13644373416900635
       ],
       "suggested_view": "hero",
       "mapping_status": "AUTHORED_ANATOMICAL_PROXY_NOT_ATLAS",
@@ -82,14 +82,14 @@
         "ROI_04_Posterior_Parietal_L"
       ],
       "center_blender": [
-        0.5325256586074829,
-        0.5601935386657715,
-        0.4335666298866272
+        0.4858330488204956,
+        0.6219980120658875,
+        0.45052066445350647
       ],
       "center_gltf": [
-        0.5325256586074829,
-        0.4335666298866272,
-        -0.5601935386657715
+        0.4858330488204956,
+        0.45052066445350647,
+        -0.6219980120658875
       ],
       "suggested_view": "hero",
       "mapping_status": "AUTHORED_ANATOMICAL_PROXY_NOT_ATLAS",
@@ -105,14 +105,14 @@
         "ROI_05_Superior_Temporal_L"
       ],
       "center_blender": [
-        0.8941332697868347,
-        0.10505276918411255,
-        -0.18553604185581207
+        0.8102653622627258,
+        0.11419075727462769,
+        -0.2250770777463913
       ],
       "center_gltf": [
-        0.8941332697868347,
-        -0.18553604185581207,
-        -0.10505276918411255
+        0.8102653622627258,
+        -0.2250770777463913,
+        -0.11419075727462769
       ],
       "suggested_view": "lateral_left",
       "mapping_status": "AUTHORED_ANATOMICAL_PROXY_NOT_ATLAS",
@@ -128,14 +128,14 @@
         "ROI_06_Middle_Inferior_Temporal_L"
       ],
       "center_blender": [
-        0.6080190539360046,
-        -0.07241708040237427,
-        -0.35690808296203613
+        0.5540307760238647,
+        -0.08464142680168152,
+        -0.3724716603755951
       ],
       "center_gltf": [
-        0.6080190539360046,
-        -0.35690808296203613,
-        0.07241708040237427
+        0.5540307760238647,
+        -0.3724716603755951,
+        0.08464142680168152
       ],
       "suggested_view": "lateral_left",
       "mapping_status": "AUTHORED_ANATOMICAL_PROXY_NOT_ATLAS",
@@ -151,20 +151,20 @@
         "ROI_07_Medial_Temporal_L"
       ],
       "center_blender": [
-        0.2713012993335724,
-        -0.06000000238418579,
-        -0.4347902238368988
+        0.2773251533508301,
+        -0.0666000247001648,
+        -0.468975692987442
       ],
       "center_gltf": [
-        0.2713012993335724,
-        -0.4347902238368988,
-        0.06000000238418579
+        0.2773251533508301,
+        -0.468975692987442,
+        0.0666000247001648
       ],
       "suggested_view": "lateral_left",
       "mapping_status": "AUTHORED_INTERNAL_PROXY_NOT_ATLAS",
-      "placement_reason": "Illustrative inferior-medial temporal band; not a hippocampal or patient segmentation",
-      "geometry_source": "Authored curved medial proxy; no atlas segmentation or patient coordinates",
-      "vertex_count_before_modifiers": 2282
+      "placement_reason": "Inferomedial temporal cortical ribbon, not hippocampal segmentation",
+      "geometry_source": "Authored folded cortical ribbon; general location only, not patient or atlas segmentation",
+      "vertex_count_before_modifiers": 3810
     },
     {
       "label_id": 8,
@@ -174,14 +174,14 @@
         "ROI_08_Occipital_Visual_L"
       ],
       "center_blender": [
-        0.4628775417804718,
-        1.0074732303619385,
-        0.0029944777488708496
+        0.41732969880104065,
+        1.1179351806640625,
+        0.0026789307594299316
       ],
       "center_gltf": [
-        0.4628775417804718,
-        0.0029944777488708496,
-        -1.0074732303619385
+        0.41732969880104065,
+        0.0026789307594299316,
+        -1.1179351806640625
       ],
       "suggested_view": "hero",
       "mapping_status": "AUTHORED_ANATOMICAL_PROXY_NOT_ATLAS",
@@ -197,20 +197,20 @@
         "ROI_09_Cingulate_L"
       ],
       "center_blender": [
-        0.08508648723363876,
-        0.0,
-        0.36384010314941406
+        0.09573192894458771,
+        -0.021008670330047607,
+        0.25873541831970215
       ],
       "center_gltf": [
-        0.08508648723363876,
-        0.36384010314941406,
-        -0.0
+        0.09573192894458771,
+        0.25873541831970215,
+        0.021008670330047607
       ],
       "suggested_view": "lateral_left",
       "mapping_status": "AUTHORED_INTERNAL_PROXY_NOT_ATLAS",
-      "placement_reason": "Illustrative medial arch",
-      "geometry_source": "Authored curved medial proxy; no atlas segmentation or patient coordinates",
-      "vertex_count_before_modifiers": 2282
+      "placement_reason": "Medial arch with folded ribbon cross-section",
+      "geometry_source": "Authored folded cortical ribbon; general location only, not patient or atlas segmentation",
+      "vertex_count_before_modifiers": 3810
     },
     {
       "label_id": 10,
@@ -220,20 +220,20 @@
         "ROI_10_Insula_L"
       ],
       "center_blender": [
-        0.67165207862854,
-        -0.11307623982429504,
-        -0.07371921837329865
+        0.5726072788238525,
+        -0.1262216866016388,
+        -0.10052025318145752
       ],
       "center_gltf": [
-        0.67165207862854,
-        -0.07371921837329865,
-        0.11307623982429504
+        0.5726072788238525,
+        -0.10052025318145752,
+        0.1262216866016388
       ],
       "suggested_view": "lateral_left",
-      "mapping_status": "AUTHORED_ANATOMICAL_PROXY_NOT_ATLAS",
-      "placement_reason": "General anatomy surface annotation; no personal segmentation or precise atlas boundary",
-      "geometry_source": "Authored folded insular cortical sheet",
-      "vertex_count_before_modifiers": 3152
+      "mapping_status": "AUTHORED_INTERNAL_PROXY_NOT_ATLAS",
+      "placement_reason": "Recessed lateral cortical sheet with authored fan-shaped folds; not atlas segmentation",
+      "geometry_source": "Authored folded cortical ribbon; general location only, not patient or atlas segmentation",
+      "vertex_count_before_modifiers": 12602
     },
     {
       "label_id": 11,
@@ -243,14 +243,14 @@
         "ROI_11_Prefrontal_R"
       ],
       "center_blender": [
-        -0.5155683159828186,
-        -0.8432331681251526,
-        0.060702621936798096
+        -0.46086418628692627,
+        -0.9356825351715088,
+        0.0624518096446991
       ],
       "center_gltf": [
-        -0.5155683159828186,
-        0.060702621936798096,
-        0.8432331681251526
+        -0.46086418628692627,
+        0.0624518096446991,
+        0.9356825351715088
       ],
       "suggested_view": "hero",
       "mapping_status": "AUTHORED_ANATOMICAL_PROXY_NOT_ATLAS",
@@ -266,14 +266,14 @@
         "ROI_12_Motor_Premotor_R"
       ],
       "center_blender": [
-        -0.5534237623214722,
-        -0.3108573853969574,
-        0.4608144164085388
+        -0.49871575832366943,
+        -0.3451923131942749,
+        0.47760024666786194
       ],
       "center_gltf": [
-        -0.5534237623214722,
-        0.4608144164085388,
-        0.3108573853969574
+        -0.49871575832366943,
+        0.47760024666786194,
+        0.3451923131942749
       ],
       "suggested_view": "hero",
       "mapping_status": "AUTHORED_ANATOMICAL_PROXY_NOT_ATLAS",
@@ -289,14 +289,14 @@
         "ROI_13_Somatosensory_R"
       ],
       "center_blender": [
-        -0.5597323179244995,
-        0.12336822599172592,
-        0.4245465397834778
+        -0.5089840888977051,
+        0.13644291460514069,
+        0.4385012090206146
       ],
       "center_gltf": [
-        -0.5597323179244995,
-        0.4245465397834778,
-        -0.12336822599172592
+        -0.5089840888977051,
+        0.4385012090206146,
+        -0.13644291460514069
       ],
       "suggested_view": "hero",
       "mapping_status": "AUTHORED_ANATOMICAL_PROXY_NOT_ATLAS",
@@ -312,14 +312,14 @@
         "ROI_14_Posterior_Parietal_R"
       ],
       "center_blender": [
-        -0.5325256586074829,
-        0.5509164929389954,
-        0.4335649609565735
+        -0.4858328700065613,
+        0.6117581725120544,
+        0.4505157768726349
       ],
       "center_gltf": [
-        -0.5325256586074829,
-        0.4335649609565735,
-        -0.5509164929389954
+        -0.4858328700065613,
+        0.4505157768726349,
+        -0.6117581725120544
       ],
       "suggested_view": "hero",
       "mapping_status": "AUTHORED_ANATOMICAL_PROXY_NOT_ATLAS",
@@ -335,14 +335,14 @@
         "ROI_15_Superior_Temporal_R"
       ],
       "center_blender": [
-        -0.8941292762756348,
-        0.10504817962646484,
-        -0.18553900718688965
+        -0.8102911710739136,
+        0.11419057846069336,
+        -0.22508028149604797
       ],
       "center_gltf": [
-        -0.8941292762756348,
-        -0.18553900718688965,
-        -0.10504817962646484
+        -0.8102911710739136,
+        -0.22508028149604797,
+        -0.11419057846069336
       ],
       "suggested_view": "lateral_right",
       "mapping_status": "AUTHORED_ANATOMICAL_PROXY_NOT_ATLAS",
@@ -358,14 +358,14 @@
         "ROI_16_Middle_Inferior_Temporal_R"
       ],
       "center_blender": [
-        -0.6079479455947876,
-        -0.07158076763153076,
-        -0.35692235827445984
+        -0.5540214776992798,
+        -0.08373424410820007,
+        -0.3724963068962097
       ],
       "center_gltf": [
-        -0.6079479455947876,
-        -0.35692235827445984,
-        0.07158076763153076
+        -0.5540214776992798,
+        -0.3724963068962097,
+        0.08373424410820007
       ],
       "suggested_view": "lateral_right",
       "mapping_status": "AUTHORED_ANATOMICAL_PROXY_NOT_ATLAS",
@@ -381,20 +381,20 @@
         "ROI_17_Medial_Temporal_R"
       ],
       "center_blender": [
-        -0.2713012993335724,
-        -0.06000000238418579,
-        -0.4347902238368988
+        -0.2773251533508301,
+        -0.0666000247001648,
+        -0.468975692987442
       ],
       "center_gltf": [
-        -0.2713012993335724,
-        -0.4347902238368988,
-        0.06000000238418579
+        -0.2773251533508301,
+        -0.468975692987442,
+        0.0666000247001648
       ],
       "suggested_view": "lateral_right",
       "mapping_status": "AUTHORED_INTERNAL_PROXY_NOT_ATLAS",
-      "placement_reason": "Illustrative inferior-medial temporal band; not a hippocampal or patient segmentation",
-      "geometry_source": "Authored curved medial proxy; no atlas segmentation or patient coordinates",
-      "vertex_count_before_modifiers": 2282
+      "placement_reason": "Inferomedial temporal cortical ribbon, not hippocampal segmentation",
+      "geometry_source": "Authored folded cortical ribbon; general location only, not patient or atlas segmentation",
+      "vertex_count_before_modifiers": 3810
     },
     {
       "label_id": 18,
@@ -404,14 +404,14 @@
         "ROI_18_Occipital_Visual_R"
       ],
       "center_blender": [
-        -0.4628783166408539,
-        1.0055071115493774,
-        0.002771824598312378
+        -0.4173305630683899,
+        1.1169781684875488,
+        0.00246274471282959
       ],
       "center_gltf": [
-        -0.4628783166408539,
-        0.002771824598312378,
-        -1.0055071115493774
+        -0.4173305630683899,
+        0.00246274471282959,
+        -1.1169781684875488
       ],
       "suggested_view": "hero",
       "mapping_status": "AUTHORED_ANATOMICAL_PROXY_NOT_ATLAS",
@@ -427,20 +427,20 @@
         "ROI_19_Cingulate_R"
       ],
       "center_blender": [
-        -0.08508648723363876,
-        0.0,
-        0.36384010314941406
+        -0.09573192894458771,
+        -0.021008670330047607,
+        0.25873541831970215
       ],
       "center_gltf": [
-        -0.08508648723363876,
-        0.36384010314941406,
-        -0.0
+        -0.09573192894458771,
+        0.25873541831970215,
+        0.021008670330047607
       ],
       "suggested_view": "lateral_right",
       "mapping_status": "AUTHORED_INTERNAL_PROXY_NOT_ATLAS",
-      "placement_reason": "Illustrative medial arch",
-      "geometry_source": "Authored curved medial proxy; no atlas segmentation or patient coordinates",
-      "vertex_count_before_modifiers": 2282
+      "placement_reason": "Medial arch with folded ribbon cross-section",
+      "geometry_source": "Authored folded cortical ribbon; general location only, not patient or atlas segmentation",
+      "vertex_count_before_modifiers": 3810
     },
     {
       "label_id": 20,
@@ -450,20 +450,20 @@
         "ROI_20_Insula_R"
       ],
       "center_blender": [
-        -0.67165207862854,
-        -0.11307623982429504,
-        -0.07371921837329865
+        -0.572607159614563,
+        -0.12622171640396118,
+        -0.10052025318145752
       ],
       "center_gltf": [
-        -0.67165207862854,
-        -0.07371921837329865,
-        0.11307623982429504
+        -0.572607159614563,
+        -0.10052025318145752,
+        0.12622171640396118
       ],
       "suggested_view": "lateral_right",
-      "mapping_status": "AUTHORED_ANATOMICAL_PROXY_NOT_ATLAS",
-      "placement_reason": "General anatomy surface annotation; no personal segmentation or precise atlas boundary",
-      "geometry_source": "Authored folded insular cortical sheet",
-      "vertex_count_before_modifiers": 3152
+      "mapping_status": "AUTHORED_INTERNAL_PROXY_NOT_ATLAS",
+      "placement_reason": "Recessed lateral cortical sheet with authored fan-shaped folds; not atlas segmentation",
+      "geometry_source": "Authored folded cortical ribbon; general location only, not patient or atlas segmentation",
+      "vertex_count_before_modifiers": 12602
     }
   ]
 }

@@ -64,13 +64,17 @@ export function makeCoreGeometry() {
   return { shell: new Float32Array(shell), inner: new Float32Array(inner), panels: new Float32Array(panels), particles: new Float32Array(particles), glow }
 }
 
-export function coreMotion(elapsed: number, level: number, reduced: boolean) {
+export type CoreState = 'standby' | 'processing' | 'analyzing' | 'error' | 'paused' | 'preview'
+export const coreStateColors: Record<CoreState, string> = { standby: '#68c9ff', processing: '#ffb05f', analyzing: '#61f0de', error: '#ff626e', paused: '#7193af', preview: '#68c9ff' }
+
+export function coreMotion(elapsed: number, level: number, reduced: boolean, state: CoreState = 'standby') {
   const t = reduced || !Number.isFinite(elapsed) ? 0 : elapsed
   const amplitude = reduced || !Number.isFinite(level) ? 0 : Math.max(0, Math.min(1, level))
+  const pulse = reduced ? 0 : state === 'error' ? (1 + Math.sin(t * 1.8)) * .04 : state === 'processing' ? (1 + Math.sin(t * 3)) * .025 : 0
   return {
     shellY: 0.3 + t * 0.18, innerY: 0.2 - t * 0.34, bandZ: 0.4 + t * 0.24,
-    scale: 1 + amplitude * 0.065 + Math.sin(t * 1.1) * 0.008,
-    glow: 0.65 + amplitude * 0.85, panels: 0.16 + amplitude * 0.16,
+    scale: 1 + amplitude * 0.065 + Math.sin(t * 1.1) * 0.008 + pulse,
+    glow: 0.65 + amplitude * 0.85 + pulse * 3, panels: 0.16 + amplitude * 0.16,
     dust: 0.62 + amplitude * 0.3,
   }
 }
