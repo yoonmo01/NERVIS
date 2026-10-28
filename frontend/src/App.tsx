@@ -40,6 +40,7 @@ export default function App() {
   const [explored, setExplored] = useState(false)
   const [panel, setPanel] = useState<ComposerPanel>('text')
   const [draft, setDraft] = useState('')
+  const [voiceActive, setVoiceActive] = useState(false)
   const [briefingPreview, setBriefingPreview] = useState(false)
   const [briefingCards, setBriefingCards] = useState<{ id: number; value: Briefing } | null>(null)
   const cardsFlight = useRef(false)
@@ -107,7 +108,7 @@ export default function App() {
     setStageRequest({ id, selection }); setExplored(true); setView('analysis'); setPanel(null); setPhase('applying')
   }
   const send = async () => {
-    if (flight.current || locked || (!briefingPreview && (!aiStatus?.enabled || aiStatus.busy)) || !draft.trim() || !data) return
+    if (flight.current || locked || voiceActive || (!briefingPreview && (!aiStatus?.enabled || aiStatus.busy)) || !draft.trim() || !data) return
     flight.current = true; expectedStage.current = null
     const submitted = draft.trim(), current = new AbortController()
     controller.current = current
@@ -155,13 +156,13 @@ export default function App() {
     setBriefingCards(null); setStageRequest(null); setExplored(false); setView('home'); setPanel('text')
   }
   const newConversation = () => {
-    if (flight.current || locked) return
+    if (flight.current || locked || voiceActive) return
     conversation.startNew()
     context.current = { selected_region_ids: [], start: 1, end: 200 }
     resetConversationView(); setHistoryOpen(false)
   }
   const switchConversation = async (id: string) => {
-    if (flight.current || locked || conversation.loading) return
+    if (flight.current || locked || voiceActive || conversation.loading) return
     const selected = await conversation.reload(id)
     if (!selected) return
     context.current = selected.state.context ?? { selected_region_ids: [], start: 1, end: 200 }
@@ -223,7 +224,7 @@ export default function App() {
       <div className="header-actions">
       {ready && <div className="conversation-controls">
         <button disabled={locked || conversation.loading} onClick={() => { if (!historyOpen) void conversation.loadSessions(); setHistoryOpen(open => !open) }}>대화 기록{conversation.value ? ` · ${conversation.value.messages.length}` : ''}</button>
-        <button disabled={locked || conversation.loading} onClick={() => { void newConversation() }}>새 대화</button>
+        <button disabled={locked || voiceActive || conversation.loading} onClick={() => { void newConversation() }}>새 대화</button>
         {conversation.error && <button disabled={locked || conversation.loading} onClick={() => { void conversation.reload() }}>기록 다시 불러오기</button>}
         {conversation.notice && <small role="status">{conversation.notice}</small>}
       </div>}
@@ -258,9 +259,9 @@ export default function App() {
       {view === 'home' && !resultOpen && resultPanel && <button className="result-reopen" onClick={() => setResultOpen(true)}>응답 다시 열기</button>}
       {ready && historyOpen && <ConversationHistory title={conversation.value?.title ?? '대화 기록'} messages={conversation.value?.messages ?? []}
         sessions={conversation.sessions} sessionId={conversation.value?.id} hasMore={conversation.hasMore} loading={conversation.listLoading}
-        listError={conversation.listError} locked={locked || conversation.loading} onSelect={id => { void switchConversation(id) }}
+        listError={conversation.listError} locked={locked || voiceActive || conversation.loading} onSelect={id => { void switchConversation(id) }}
         onMore={() => { void conversation.loadSessions(true) }} onRefresh={() => { void conversation.loadSessions() }} onClose={() => setHistoryOpen(false)} />}
-      <Composer canSend={canSend} status={inputStatus} onSend={() => { void send() }} panel={panel} draft={draft} onDraft={setDraft} closable={view === 'analysis' || panel === 'voice'} locked={locked}
+      <Composer onVoiceActive={setVoiceActive} canSend={canSend} status={inputStatus} onSend={() => { void send() }} panel={panel} draft={draft} onDraft={setDraft} closable={view === 'analysis' || panel === 'voice'} locked={locked}
         onToggle={target => setPanel(current => toggleComposer(current, target, view))}
         onClose={() => setPanel(view === 'home' ? 'text' : null)} />
       <footer className="shell-footer">

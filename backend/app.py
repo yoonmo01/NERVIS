@@ -22,6 +22,7 @@ from backend.ai import AIError, AnalysisAI, ChatRequest, Gateway, Settings
 from backend.data import Dataset, load_dataset
 from backend.planner import PlannerError
 from backend.planner_api import router as planner_router
+from backend.stt import router as stt_router
 from backend.planner_api import briefing_result, get_weather
 from backend.schemas import CompareRequest, DetailedRequest, PairsRequest, TimeseriesRequest, WindowsRequest, RegionAnalysisRequest
 from scripts.prepare_app_data import fingerprint
@@ -67,7 +68,7 @@ def create_app(package_dir: Path = DEFAULT_PACKAGE, *, ai_service: AnalysisAI | 
             del application.state.conversation_store
 
     application = FastAPI(title="NERVIS Local API", version="0.2.0", lifespan=lifespan,
-                          description="Local brain analysis and persistent planner. AI commands require explicit activation. No voice or login.",
+                          description="Local brain analysis, persistent planner and Korean microphone dictation. AI commands require explicit activation.",
                           redoc_url=None)
     application.add_middleware(CORSMiddleware,
                                allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -75,6 +76,7 @@ def create_app(package_dir: Path = DEFAULT_PACKAGE, *, ai_service: AnalysisAI | 
                                allow_headers=["Content-Type", "Idempotency-Key"])
     application.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost"])
     application.include_router(planner_router)
+    application.include_router(stt_router)
 
     @application.exception_handler(PlannerError)
     async def invalid_planner(request, exc):

@@ -149,7 +149,7 @@
   transition:max-height .32s,opacity .24s,transform .32s,visibility .32s;
 }
 .composer--open .composer-panel {
-  max-height:210px;
+  max-height:420px;
   opacity:1;
   visibility:visible;
   overflow:visible;
@@ -191,7 +191,7 @@
   font-size:17px;
   line-height:24px;
   width:100%;
-  height:44px;
+  height:68px;
   padding:8px 14px;
   scrollbar-width:thin;
 }
@@ -211,6 +211,16 @@
   color:#668598;
   line-height:1.5;
 }
+.dictation-controls { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+.dictation-controls span { font-size:10px; color:#85a8be; }
+.dictation-toggle { display:flex; align-items:center; gap:6px; padding:7px 10px; border:1px solid #529ec980; border-radius:8px; color:#b7def4; background:#091b2a; white-space:nowrap; }
+.dictation-toggle svg { width:16px; height:16px; }
+.dictation-toggle.is-recording { color:#9bffe6; border-color:#54dfb9; }
+.dictation-partial { padding:6px 10px; margin-bottom:8px; max-height:68px; overflow:auto; font-size:13px; color:#91bdce; white-space:pre-wrap; overflow-wrap:anywhere; background:#091b2acc; border-left:2px solid #67bbdf; }
+.dictation-partial strong { font-size:10px; color:#62d7cf; }
+.dictation-overflow { margin-bottom:8px; padding:8px; border:1px solid #d6b76d; background:#091b2a; font-size:11px; color:#e3cf9d; }
+.dictation-overflow textarea { display:block; width:100%; height:54px; margin:6px 0; resize:vertical; background:#071422; color:#cfe6f4; }
+.dictation-overflow button { padding:4px 8px; border:1px solid #85a8be; }
 .composer-launchers {
   display:flex;
   align-items:center;

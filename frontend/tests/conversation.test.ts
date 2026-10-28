@@ -1,8 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { checkedReply, viewSelection, pending, interfaceState, correlationLabel } from './conversation.ts'
-import type { AIReply, LocalResult } from './conversation.ts'
-import { briefingFromResults, previewKind, briefingStageAt, briefingTimeline } from './briefing.ts'
+import { checkedReply, viewSelection, pending, interfaceState, correlationLabel } from '../src/conversation.ts'
+import type { AIReply, LocalResult } from '../src/conversation.ts'
+import { briefingFromResults, previewKind, briefingStageAt, briefingTimeline } from '../src/briefing.ts'
 
 const result = (tool: string, parameters: Record<string, unknown>, data = {}): LocalResult => ({ result_id: tool, tool, parameters, data: { analysis: tool, dataset_version: 'v', ...data } })
 const reply = (...results: LocalResult[]): AIReply => ({ status: 'ok', model_acknowledgement: '완료', results, warning: null })

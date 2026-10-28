@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { displayColor, hemispherePair, maskBoundary } from './brainVisual.ts'
-import type { Region } from './api.ts'
+import { displayColor, hemispherePair, maskBoundary } from '../src/brainVisual.ts'
+import type { Region } from '../src/api.ts'
 import { readFileSync } from 'node:fs'
 
 const left = { label_id: 1, contralateral_id: 11, hemisphere: 'Left', color_rgb: [1, 2, 3] } as Region
@@ -28,7 +28,7 @@ test('mask boundary stays inside the exact selected pixels and retains holes', (
 })
 
 test('CC0 cortical model contains 20 side-correct regions and no images or external buffers', () => {
-  const buffer = readFileSync(new URL('./assets/nervis-cortical-brain.glb', import.meta.url))
+  const buffer = readFileSync(new URL('../src/assets/nervis-cortical-brain.glb', import.meta.url))
   assert.equal(buffer.readUInt32LE(0), 0x46546c67)
   assert.equal(buffer.readUInt32LE(4), 2)
   assert.equal(buffer.readUInt32LE(8), buffer.length)

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import * as model from './model.ts'
-import { introStage, makeCoreGeometry, maskOverlay, wavePath, audioLevel } from './model.ts'
+import * as model from '../src/model.ts'
+import { introStage, makeCoreGeometry, maskOverlay, wavePath, audioLevel } from '../src/model.ts'
 
 test('intro keeps title, docks it, reveals core, then enables controls', () => {
   assert.equal(introStage(0), 'title')

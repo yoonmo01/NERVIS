@@ -32,7 +32,7 @@
 - 새 Blender 작업본과 검수 이미지: `reports/brain-model/anatomy-rebuild-20261023-01/` (기존 경로가 있으면 새 번호).
 - 모델·매핑·표현 계약: `frontend/src/assets/nervis-hologram-brain.glb`, `hologram-region-map.json`, `hologram-render-contract.json`.
 - 로더 검증: `frontend/src/SchematicBrain.tsx`. 현재 22개 메시 전제에 보조 구조 2개를 명시적으로 반영한다.
-- 회귀 검사: `frontend/src/hologramModel.test.ts`. 카메라/BrainStage는 새 모델의 프레이밍에 필요한 경우에만 변경한다.
+- 회귀 검사: `frontend/tests/hologramModel.test.ts`. 카메라/BrainStage는 새 모델의 프레이밍에 필요한 경우에만 변경한다.
 - 셰이더는 기존 표현을 재사용한다. 큰 형태를 가리는 발광이 확인될 때만 기존 파라미터를 최소 조절한다.
 - 완료 기록: `docs/BLENDER_HANDOFF.md`, `docs/FRONTEND_DESIGN.md`와 새 결과 디렉터리의 검수 기록. 백엔드·AI·데이터 분석은 변경 범위가 아니다.
 

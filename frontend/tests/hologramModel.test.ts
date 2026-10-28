@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
-import { cameraPresets, cameraPoseBetween, sampleSurfacePoints, validBrainLayout } from './hologramModel.ts'
+import { cameraPresets, cameraPoseBetween, sampleSurfacePoints, validBrainLayout } from '../src/hologramModel.ts'
 
 test('brain layout accepts only twenty unique mapped regions and four unlabelled context meshes', () => {
   const regions = Array.from({ length: 20 }, (_, i) => ({ label_id: i + 1, glb_nodes: ['ROI_' + (i + 1)] }))
@@ -67,13 +67,13 @@ test('surface particles are deterministic, bounded and do not change model verti
 })
 
 test('hologram delivery has independent 20 ROI nodes and four bounded surface attributes', () => {
-  const buffer = readFileSync(new URL('./assets/nervis-hologram-brain-narrow-gap.glb', import.meta.url))
+  const buffer = readFileSync(new URL('../src/assets/nervis-hologram-brain-narrow-gap.glb', import.meta.url))
   assert.equal(buffer.readUInt32LE(0), 0x46546c67)
   assert.equal(buffer.readUInt32LE(8), buffer.length)
   const doc = JSON.parse(buffer.subarray(20, 20 + buffer.readUInt32LE(12)).toString())
   const binaryStart = 28 + buffer.readUInt32LE(12)
   assert.equal(doc.meshes.length, 24)
-  const map = JSON.parse(readFileSync(new URL('./assets/hologram-region-map-narrow-gap.json', import.meta.url)).toString())
+  const map = JSON.parse(readFileSync(new URL('../src/assets/hologram-region-map-narrow-gap.json', import.meta.url)).toString())
   assert.equal(validBrainLayout(doc.nodes.filter((n: { mesh?: number }) => n.mesh !== undefined).map((n: { name: string; extras?: { label_id?: number } }) => ({ name: n.name, id: n.extras?.label_id })), map.regions), true)
   assert.equal(doc.images?.length ?? 0, 0)
   assert.ok(doc.buffers.every((b: { uri?: string }) => !b.uri))

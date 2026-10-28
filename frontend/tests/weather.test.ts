@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { weatherMessage, weatherTime } from './weather.ts'
+import { weatherMessage, weatherTime } from '../src/weather.ts'
 
 test('weather distinguishes missing, unknown, partial and unavailable states', () => {
   assert.match(weatherMessage('not_configured'), /인증키/)

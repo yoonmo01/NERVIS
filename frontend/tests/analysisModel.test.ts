@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { preferredSlice, pairedSlices, sliceCloud, advanceSample, signalStrength } from './analysisModel.ts'
-import { loadStage } from './stageData.ts'
-import { api, ApiError } from './api.ts'
+import { preferredSlice, pairedSlices, sliceCloud, advanceSample, signalStrength } from '../src/analysisModel.ts'
+import { loadStage } from '../src/stageData.ts'
+import { api, ApiError } from '../src/api.ts'
 
 test('slice choice prioritizes visibility of both ROIs and has an absent-region fallback', () => {
   const records = [
