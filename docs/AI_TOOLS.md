@@ -134,3 +134,12 @@ Usage was5527 input +148 output =5675 tokens. Billing was absent, so actual cred
 # Current common briefing extension (2026-10-23)
 
 See `BRIEFING_FLOW.md`: get_daily_briefing/get_weather now join analysis tools in the same two-request loop. Approved user-requested planner/weather summaries use explicit field selection, not entire DB rows. UI selects home cards vs analysis from actual typed results. A separately labelled pure-synthetic preview never calls external services or writes DB. Planner writes and voice remain unimplemented. This extension supersedes earlier brain-only/current-weather-placeholder notes below; live model routing quality has not been retested.
+
+2026-10-24 conversation follow-up: optional session_id/request_id pair now provides persistent raw conversation history, grounded summary history and usage. Browser restoration/new conversation and retry safety are described in CONVERSATIONS.md. No automatic summary, RAG or planner writes; legacy no-history statements describe previous checkpoints.
+
+2026-10-24 task-write follow-up: manage_tasks/list_tasks are now connected only in persistent session requests. Typed pending state, atomic batches and local receipt responses supersede previous task-read-only notes. See NATURAL_LANGUAGE_TASKS.md for the current contract, cancellation meaning and manual live checks. No actual course-write tool or live model verification was added.
+# 2026-10-24 briefing task groups and titles
+
+2026-10-24 course registration adds `register_courses` with typed partial drafts and same-session clarification/cancel, atomic courses/meetings registration and course-specific local receipts. See `NATURAL_LANGUAGE_COURSES.md`. It is an exclusive write call just like manage_tasks; no task/course mixing or course update/delete tools. Pending task/course drafts cannot overwrite each other.
+
+Daily briefing now includes all incomplete tasks with task_group overdue/today/remaining; bounded summary facts carry the same labels/counts. See `BRIEFING_TASK_GROUPS.md`. Session title generation is a separate first-turn background request (80 output-token cap, no tools, no history mutation). It is not included in normal turn usage; its usage/time are stored separately in session state. It shares the configured gateway activation/request budget, never retries, and failure does not undo the successful conversation/task transaction. See `CONVERSATIONS.md`.

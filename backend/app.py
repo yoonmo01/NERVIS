@@ -4,8 +4,14 @@ from datetime import date as Date
 from pathlib import Path
 from typing import Annotated, Literal
 from threading import Lock
+from uuid import UUID
+from backend.conversations import ConversationStore
+from backend.task_tools import TaskManager, TaskToolRequest
+from backend.course_tools import CourseManager, CourseRequest
+from backend.planner import DatabaseSettings
+from backend.schemas import RequestModel
 
-from fastapi import Depends, FastAPI, HTTPException, Path as ApiPath, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Path as ApiPath, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -37,7 +43,7 @@ Data = Annotated[Dataset, Depends(get_dataset)]
 
 
 def create_app(package_dir: Path = DEFAULT_PACKAGE, *, ai_service: AnalysisAI | None = None,
-               planner_store=None, weather_service=None) -> FastAPI:
+               planner_store=None, weather_service=None, conversation_store=None) -> FastAPI:
     package = Path(package_dir).resolve()
     ai_init_lock = Lock()
 
@@ -51,12 +57,14 @@ def create_app(package_dir: Path = DEFAULT_PACKAGE, *, ai_service: AnalysisAI | 
             application.state.ai_service = ai_service
             application.state.planner_store = planner_store
             application.state.weather_service = weather_service
+            application.state.conversation_store = conversation_store
             yield
         finally:
             del application.state.dataset
             del application.state.ai_service
             del application.state.planner_store
             del application.state.weather_service
+            del application.state.conversation_store
 
     application = FastAPI(title="NERVIS Local API", version="0.2.0", lifespan=lifespan,
                           description="Local brain analysis and persistent planner. AI commands require explicit activation. No voice or login.",
@@ -102,17 +110,55 @@ def create_app(package_dir: Path = DEFAULT_PACKAGE, *, ai_service: AnalysisAI | 
         return {"enabled": service.gateway.settings.active and remaining != 0, "model": service.gateway.settings.model,
                 "remaining_process_requests": remaining, "busy": service.busy.locked()}
 
+    def conversations(request):
+        with ai_init_lock:
+            if request.app.state.conversation_store is None:
+                request.app.state.conversation_store = ConversationStore(DatabaseSettings.load())
+            return request.app.state.conversation_store
+
+    @application.post('/api/conversations', tags=['conversation'])
+    def create_conversation(body: RequestModel, request: Request):
+        from backend.planner_api import check_origin
+        check_origin(request)
+        return conversations(request).create()
+
+    @application.get('/api/conversations', tags=['conversation'])
+    def list_conversations(request: Request, limit: Annotated[int, Query(ge=1,le=100)] = 50,
+                           offset: Annotated[int, Query(ge=0,le=1000000)] = 0):
+        return conversations(request).list(limit,offset)
+
+    @application.get('/api/conversations/{session_id}', tags=['conversation'])
+    def get_conversation(session_id: UUID, request: Request):
+        return conversations(request).get(session_id)
+
     @application.post("/api/ai/chat", tags=["AI (opt-in)"])
-    def ai_chat(body: ChatRequest, request: Request, data: Data):
+    def ai_chat(body: ChatRequest, request: Request, data: Data, background_tasks: BackgroundTasks):
         origin = request.headers.get("origin")
         if origin and origin not in ("http://localhost:5173", "http://127.0.0.1:5173",
                                      "http://localhost:8000", "http://127.0.0.1:8000"):
             raise HTTPException(403, "AI origin is not allowed")
         service = ai_instance(request)
-        return service.run(data, body.command, body.context.model_dump(), services={
+        services={
             'get_daily_briefing':lambda **p:briefing_result(request,**p),
             'get_weather':lambda date=None,location=None:{'kind':'weather',**get_weather(request).get(
-                location,Date.fromisoformat(date) if date else None)}})
+                location,Date.fromisoformat(date) if date else None)}}
+        if (body.session_id is None) != (body.request_id is None):
+            raise HTTPException(422,'session_and_request_ids_required_together')
+        if body.session_id is None:
+            return service.run(data,body.command,body.context.model_dump(),services=services)
+        store=conversations(request)
+        def run_turn(history,state,conn):
+            manager=TaskManager(store,conn,state.get('planner'))
+            task_services={**services,'manage_tasks':lambda **p:manager.execute(TaskToolRequest.model_validate(p)),
+                           'list_tasks':manager.list_tasks,
+                           'register_courses':lambda **p:CourseManager(store,conn,manager.state).execute(CourseRequest.model_validate(p))}
+            result=service.run(data,body.command,body.context.model_dump(),services=task_services,
+                               history=history,session_state={**{k:v for k,v in state.items() if k in ('context','last_result_refs','last_assistant_message')},'planner':manager.public_state()})
+            result['planner_state']=manager.state
+            return result
+        result=store.chat(body.session_id,body.request_id,body.command,body.context.model_dump(),run_turn)
+        background_tasks.add_task(store.generate_title,body.session_id,service.generate_title)
+        return result
 
     @application.get("/api/health", tags=["dataset"])
     def health(data: Data):

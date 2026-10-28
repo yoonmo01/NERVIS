@@ -6,6 +6,8 @@ import { displayColor } from './brainVisual.ts'
 import { wavePath } from './model.ts'
 import { aiErrorMessage, pairSelection } from './conversation.ts'
 import type { AIReply, CommandPhase, LocalResult } from './conversation.ts'
+import { isTaskTool } from './tasks.ts'
+import type { TaskRecord } from './tasks.ts'
 import type { StageSelection } from './stageData.ts'
 
 const titles: Record<string, string> = {
@@ -130,12 +132,17 @@ export default function ConversationPanel({ phase, command, reply, error, region
 }) {
   if (phase === 'idle') return null
   const briefing = reply?.results.some(r => r.tool === 'get_daily_briefing' || r.tool === 'get_weather')
-  const analysisReply = reply ? { ...reply, results: reply.results.filter(r => r.tool !== 'get_daily_briefing' && r.tool !== 'get_weather') } : null
+  const taskResult = reply?.results.find(result => isTaskTool(result.tool))
+  const analysisReply = reply ? { ...reply, results: reply.results.filter(r => r.tool !== 'get_daily_briefing' && r.tool !== 'get_weather' && !isTaskTool(r.tool)) } : null
   return <aside className="conversation-result" aria-label="NERVIS 요청과 결과" aria-busy={locked}>
     <div className="conversation-result-heading"><span>NERVIS</span>{!docked && <button disabled={locked} onClick={onClose} aria-label="대화 결과 닫기">×</button>}</div>
     <p className="submitted-command">{command}</p>
-    <p role={error ? 'alert' : 'status'} className={`request-state${error ? ' has-error' : ''}`}>{error || (phase === 'requesting' ? '요청하신 내용을 확인하고 있어요.' : phase === 'applying' ? '결과를 화면에 정리하고 있어요.' : reply?.status === 'partial' ? briefing ? '조회 결과는 받았지만 설명을 마무리하지 못했어요.' : '계산은 완료했지만 설명을 마무리하지 못했어요. 계산 결과를 확인해 주세요.' : reply?.results.length ? briefing ? '브리핑이 준비됐어요.' : '분석 결과가 준비됐어요.' : '답변이 준비됐어요.')}</p>
+    <p role={error ? 'alert' : 'status'} className={`request-state${error ? ' has-error' : ''}`}>{error || (phase === 'requesting' ? '요청하신 내용을 확인하고 있어요.' : phase === 'applying' ? '결과를 화면에 정리하고 있어요.' : reply?.status === 'partial' ? briefing ? '조회 결과는 받았지만 설명을 마무리하지 못했어요.' : '계산은 완료했지만 설명을 마무리하지 못했어요. 계산 결과를 확인해 주세요.' : taskResult ? taskResult.data.status === 'needs_input' ? '추가 확인이 필요해요.' : taskResult.data.status === 'saved' ? taskResult.tool === 'register_courses' ? '수업을 등록했어요.' : '할 일에 반영했어요.' : taskResult.tool === 'register_courses' ? '수업 등록 요청을 확인했어요.' : '할 일 요청을 확인했어요.' : reply?.results.length ? briefing ? '브리핑이 준비됐어요.' : '분석 결과가 준비됐어요.' : '답변이 준비됐어요.')}</p>
     {reply?.model_acknowledgement && phase !== 'requesting' && <div className="model-acknowledgement"><Markdown skipHtml disallowedElements={['img', 'a']} unwrapDisallowed>{reply.model_acknowledgement}</Markdown></div>}
+    {taskResult && taskResult.tool !== 'register_courses' && Array.isArray(taskResult.data.items) && taskResult.data.items.length > 0 && <ul className="task-receipt-list">{(taskResult.data.items as unknown as TaskRecord[]).map((item, index) => <li key={`${item.id}-${index}`}>
+      <strong>{item.title}</strong><small>{item.operation ? `${item.operation} · ` : ''}{({ todo: '할 예정', in_progress: '진행 중', done: '완료' }[item.status])}
+        {item.planned_on ? ` · 예정 ${item.planned_on}` : ''}{item.due_on ? ` · 마감 ${item.due_on}${item.due_time ? ` ${item.due_time.slice(0,5)}` : ''}` : ''}</small>
+    </li>)}</ul>}
     {reply?.warning && <p className="result-warning" role="status">{aiErrorMessage(reply.warning)}</p>}
     {!docked && analysisReply && analysisReply.results.length > 0 && <details className="local-results" open={!analysisReply.model_acknowledgement || analysisReply.results.some(r => ['find_similar_pairs', 'get_dataset_summary', 'get_timeseries', 'analyze_regions_detailed'].includes(r.tool))}><summary>계산 결과</summary><CalculationResults reply={analysisReply} regions={regions} locked={locked} onSelect={onSelect} /></details>}
   </aside>

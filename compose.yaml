@@ -16,6 +16,7 @@ services:
       - postgres_data:/var/lib/postgresql
       - ./database/migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
       - ./database/migrations/002_api_requests.sql:/docker-entrypoint-initdb.d/002_api_requests.sql:ro
+      - ./database/migrations/003_conversations.sql:/docker-entrypoint-initdb.d/003_conversations.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U nervis -d nervis"]
       interval: 5s

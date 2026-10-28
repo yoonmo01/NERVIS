@@ -2,6 +2,7 @@ import type { Comparison, Slice, WindowResult } from './api.ts'
 import type { StageSelection } from './stageData.ts'
 import type { CoreState } from './model.ts'
 import { checkBriefing } from './briefing.ts'
+import { checkTaskResult, isTaskTool } from './tasks.ts'
 
 export type CommandPhase = 'idle' | 'requesting' | 'applying' | 'complete' | 'error'
 export interface AIStatus { enabled: boolean; model: string; remaining_process_requests: number | null; busy: boolean }
@@ -37,7 +38,8 @@ export function checkedReply(value: AIReply, version: string): AIReply {
   const ids = new Set<string>()
   for (const result of value.results) {
     if (!result || typeof result.result_id !== 'string' || ids.has(result.result_id) || !result.parameters || !result.data) throw new Error('결과 형식이 올바르지 않습니다.')
-    if (result.tool === 'get_daily_briefing' || result.tool === 'get_weather') checkBriefing(result.data, result.tool)
+    if (isTaskTool(result.tool)) checkTaskResult(result.data, result.tool)
+    else if (result.tool === 'get_daily_briefing' || result.tool === 'get_weather') checkBriefing(result.data, result.tool)
     else if (!toolNames.includes(result.tool) || result.data.analysis !== result.tool || result.data.dataset_version !== version) throw new Error('분석 결과의 도구 또는 데이터 버전이 일치하지 않습니다.')
     ids.add(result.result_id)
   }
@@ -93,6 +95,12 @@ export function viewSelection(reply: AIReply): StageSelection | null {
 export function aiErrorMessage(code: string): string {
   const messages: Record<string, string> = {
     ai_budget_exhausted_or_disabled: 'AI 호출이 꺼져 있거나 승인된 호출 예산을 모두 사용했습니다.',
+    planner_session_required: '할 일 변경은 대화 세션에서 요청해 주세요.',
+    task_target_no_longer_exists: '대상 할 일이 없어졌습니다. 이름을 다시 알려 주세요.',
+    invalid_task_fields: '날짜·시간 등 할 일 정보를 확인해 주세요.',
+    duplicate_actions_in_task_batch: '동일한 작업이 한 요청에 중복되어 있습니다. 하나씩 정리해 다시 말씀해 주세요.',
+    task_actions_required: '등록하거나 바꿀 할 일을 알려 주세요.',
+    task_write_must_be_single_batch: '할 일 변경 요청을 하나의 작업 묶음으로 다시 말씀해 주세요.',
     ai_request_in_progress: '서버에서 이전 요청을 처리 중입니다. 완료 후 새 명령을 보내 주세요.',
     'AI configuration is invalid': '서버의 AI 설정을 확인해 주세요.',
     gateway_http_401: 'Gateway 인증을 확인해 주세요.', gateway_http_403: '해당 모델의 사용 권한을 확인해 주세요.',

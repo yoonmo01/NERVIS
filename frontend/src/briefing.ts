@@ -3,7 +3,7 @@ import type { Weather } from './weather.ts'
 export interface Briefing {
   date: string; preview: boolean; weatherOnly?: boolean; calendar_status?: string;
   classes: { course_name: string; starts_at: string; ends_at: string; location?: string | null }[];
-  tasks: { title: string; status: string; planned_on?: string | null; due_on?: string | null; due_time?: string | null }[];
+  tasks: { title: string; status: string; task_group?: 'overdue' | 'today' | 'remaining'; planned_on?: string | null; due_on?: string | null; due_time?: string | null }[];
   weather: Weather;
   has_more_classes?: boolean; has_more_tasks?: boolean;
 }
@@ -29,7 +29,8 @@ export function checkBriefing(data: Record<string, unknown>, tool: string) {
   if (data.kind !== 'briefing' || typeof data.date !== 'string' || !Array.isArray(data.classes) || data.classes.length > 200 ||
       !Array.isArray(data.tasks) || data.tasks.length > 200 ||
       data.classes.some(row => !row || typeof row.course_name !== 'string' || typeof row.starts_at !== 'string' || typeof row.ends_at !== 'string') ||
-      data.tasks.some(row => !row || typeof row.title !== 'string' || typeof row.status !== 'string')) throw new Error('브리핑 응답 형식을 확인해 주세요.')
+      data.tasks.some(row => !row || typeof row.title !== 'string' || typeof row.status !== 'string' ||
+        (row.task_group !== undefined && !['overdue', 'today', 'remaining'].includes(row.task_group)))) throw new Error('브리핑 응답 형식을 확인해 주세요.')
 }
 
 export function briefingFromResults(results: { tool: string; data: Record<string, unknown> }[]): Briefing | null {

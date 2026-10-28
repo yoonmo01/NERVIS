@@ -1,5 +1,7 @@
 """Real PostgreSQL integration in a disposable synthetic-only database; explicit opt-in."""
 import os
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 import unittest
 from uuid import uuid4
@@ -40,7 +42,7 @@ class PlannerApiTests(PackageCase):
         from backend.weather import WeatherService
         with self.store.settings.connect() as conn:
             conn.execute('TRUNCATE api_requests, tasks, class_meetings, courses RESTART IDENTITY')
-        self.client = self.enterContext(TestClient(create_app(self.package, planner_store=self.store, weather_service=WeatherService('')),
+        self.client = self.enterContext(TestClient(create_app(self.package, planner_store=self.store, weather_service=WeatherService('',clock=lambda:datetime(2026,10,23,12,tzinfo=ZoneInfo('Asia/Seoul')))),
                                                    base_url='http://127.0.0.1'))
 
     def post(self, path, body, key=None):
@@ -129,7 +131,9 @@ class PlannerApiTests(PackageCase):
         response = self.client.get('/api/briefing?date=2026-10-23').json()
         self.assertEqual(response['date'], '2026-10-23')
         self.assertEqual(len(response['classes']), 1)
-        self.assertEqual({r['title'] for r in response['tasks']}, {'today', 'overdue', 'unfinished_yesterday'})
+        self.assertEqual({r['title'] for r in response['tasks']}, {'today', 'overdue', 'unfinished_yesterday','future'})
+        self.assertEqual({r['title']:r['task_group'] for r in response['tasks']},
+                         {'today':'today','overdue':'overdue','unfinished_yesterday':'remaining','future':'remaining'})
         self.assertEqual(response['weather']['location'], '춘천')
         self.assertEqual(response['weather']['status'], 'not_configured')
         self.assertEqual(self.client.get('/api/briefing?date=2027-01-01').json()['classes'], [])

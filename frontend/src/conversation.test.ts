@@ -103,3 +103,22 @@ test('one state drives the orb and label and actual ranges label correlation', (
   assert.equal(correlationLabel(51, 150, false), '분석 구간 51~150')
   assert.equal(correlationLabel(51, 100, true), '이동 창 51~100')
 })
+
+test('task receipts and clarification stay out of brain selection and reject malformed records', () => {
+  const packet: AIReply = { status: 'ok', warning: null, model_acknowledgement: '등록했습니다.', results: [
+    { result_id: 'task', tool: 'manage_tasks', parameters: {}, data: { kind: 'task_changes', status: 'saved', message: '등록했습니다.', candidates: [], items: [
+      { id: 1, title: '공모전 제출', status: 'todo', planned_on: null, due_on: '2026-10-29', due_time: null },
+    ] } },
+  ] }
+  assert.equal(viewSelection(checkedReply(packet, 'v')), null)
+  assert.throws(() => checkedReply({ ...packet, results: [{ ...packet.results[0], data: { ...packet.results[0].data, items: [{ id: -1, title: 'bad', status: 'made-up' }] } }] }, 'v'))
+})
+
+test('course registration receipt stays in conversation and validates timetable', () => {
+  const data = { kind: 'course_changes', status: 'saved', message: '수업을 등록했습니다.', candidates: [], items: [
+    { id: 1, name: '합성 AI', semester_name: '2026-2', starts_on: '2026-09-01', ends_on: '2026-12-20', meetings: [{ weekday: 1, starts_at: '09:00', ends_at: '10:15', location: null }] },
+  ] }
+  const packet: AIReply = { status: 'ok', warning: null, model_acknowledgement: data.message, results: [{ result_id: 'course', tool: 'register_courses', parameters: {}, data }] }
+  assert.equal(viewSelection(checkedReply(packet, 'v')), null)
+  assert.throws(() => checkedReply({ ...packet, results: [{ ...packet.results[0], data: { ...data, items: [{ ...data.items[0], meetings: [{ weekday: 8 }] }] } }] }, 'v'))
+})

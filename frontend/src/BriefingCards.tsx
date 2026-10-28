@@ -57,7 +57,14 @@ export default function BriefingCards({ value, reduced, onReady }: { value: Brie
         {value.calendar_status === 'unavailable' ? <p>수업 목록을 조회하지 못했습니다.</p> : value.classes.length ? <ul>{value.classes.map((row, i) => <li key={i}><time>{row.starts_at.slice(0, 5)}–{row.ends_at.slice(0, 5)}</time><strong>{row.course_name}</strong>{row.location && <small>{row.location}</small>}</li>)}</ul> : <p>해당 날짜에 등록된 수업이 없습니다.</p>}
         {value.has_more_classes && <small>추가 수업이 있습니다.</small>}</>}
       {kind === 'tasks' && <><span className="briefing-eyebrow">TO DO</span><h2>해야 할 일</h2>
-        {value.calendar_status === 'unavailable' ? <p>할 일 목록을 조회하지 못했습니다.</p> : value.tasks.length ? <ul>{value.tasks.map((row, i) => <li key={i}><strong>{row.title}</strong><small>{row.status === 'in_progress' ? '진행 중' : '할 예정'}{row.due_on ? ` · ${row.due_on}${row.due_time ? ` ${row.due_time.slice(0, 5)}` : ''} 마감` : ''}</small></li>)}</ul> : <p>해당 날짜까지 예정·마감인 미완료 할 일이 없습니다.</p>}
+        {value.calendar_status === 'unavailable' ? <p>할 일 목록을 조회하지 못했습니다.</p> : value.tasks.length ?
+          (['overdue', 'today', 'remaining'] as const).map(group => {
+            const rows = value.tasks.filter(row => row.status !== 'done' && (row.task_group ?? 'remaining') === group)
+            return rows.length ? <div key={group} className={`briefing-task-group group-${group}`}>
+              <h3>{group === 'overdue' ? '기한 지난 일' : group === 'today' ? (isToday ? '오늘 할 일' : '해당 날짜 할 일') : '남은 할 일'} <small>{rows.length}</small></h3>
+              <ul>{rows.map((row, i) => <li key={i}><strong>{row.title}</strong><small>{row.status === 'in_progress' ? '진행 중' : '할 예정'}{row.due_on ? ` · ${row.due_on}${row.due_time ? ` ${row.due_time.slice(0, 5)}` : ''} 마감` : ''}{row.planned_on ? ` · ${row.planned_on} 예정` : ''}{!row.due_on && !row.planned_on ? ' · 날짜 미정' : ''}</small></li>)}</ul>
+            </div> : null
+          }) : <p>남아 있는 할 일이 없습니다.</p>}
         {value.has_more_tasks && <small>추가 할 일이 있습니다.</small>}</>}
     </section>})}
   </aside>

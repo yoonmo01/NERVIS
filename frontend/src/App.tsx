@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import CoreScene from './CoreScene.tsx'
+import ConversationHistory from './ConversationHistory.tsx'
+import { useConversation } from './useConversation.ts'
+import { isTaskTool } from './tasks.ts'
 import AnalysisView from './AnalysisView.tsx'
 import BriefingCards from './BriefingCards.tsx'
 import { briefingFromResults, previewKind } from './briefing.ts'
@@ -28,6 +31,8 @@ function useReducedMotion() {
 
 export default function App() {
   const reduced = useReducedMotion()
+  const conversation = useConversation()
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [stage, setStage] = useState<IntroStage>(() => introStage(0, reduced))
   const [replay, setReplay] = useState(0)
   const [skipped, setSkipped] = useState(false)
@@ -56,6 +61,13 @@ export default function App() {
   const [requestError, setRequestError] = useState('')
   const [stageRequest, setStageRequest] = useState<ViewRequest | null>(null)
   const context = useRef<ViewContext>({ selected_region_ids: [], start: 1, end: 200 })
+  const restoredSession = useRef<string | null>(null)
+  useEffect(() => {
+    if (conversation.value && restoredSession.current !== conversation.value.id) {
+      restoredSession.current = conversation.value.id
+      if (conversation.value.state.context) context.current = conversation.value.state.context
+    }
+  }, [conversation.value])
   const flight = useRef(false), expectedStage = useRef<number | null>(null), sequence = useRef(0)
   const controller = useRef<AbortController | null>(null)
   const mounted = useRef(true)
@@ -111,13 +123,17 @@ export default function App() {
         packet = { status: 'ok', warning: null, model_acknowledgement: kind === 'weather' ? '날씨 카드의 더미 미리보기입니다.' : '더미 브리핑 미리보기입니다. 날씨, 오늘 수업과 해야 할 일을 순서대로 정리했습니다.',
           results: [{ result_id: `preview-${++sequence.current}`, tool: kind === 'briefing' ? 'get_daily_briefing' : 'get_weather', parameters: {},
             data: kind === 'briefing' ? value as unknown as Record<string, unknown> : { ...value.weather, kind: 'weather', preview: true } }] }
-      } else packet = await api<AIReply>('/api/ai/chat', current.signal, { command: submitted, context: context.current })
+      } else {
+        const sessionId = await conversation.ensure()
+        packet = await api<AIReply>('/api/ai/chat', current.signal, { command: submitted, context: context.current, session_id: sessionId, request_id: crypto.randomUUID() })
+      }
       const response = checkedReply(packet, data.summary.dataset_version)
       if (!mounted.current) return
       const selection = viewSelection(response)
       const briefing = briefingFromResults(response.results)
       setReply(response); setDraft('')
       if (selection) applySelection(selection)
+      else if (response.results.some(result => isTaskTool(result.tool))) { setView('home'); setPanel('text'); setPhase('complete'); flight.current = false }
       else if (briefing) {
         setBriefingCards({ id: ++sequence.current, value: briefing }); cardsFlight.current = true
         setView('home'); setPanel('text'); setPhase('applying')
@@ -131,8 +147,25 @@ export default function App() {
       setPhase('error'); flight.current = false
     } finally {
       clearTimeout(timeout); controller.current = null
-      if (mounted.current) void refreshAI()
+      if (mounted.current) { void refreshAI(); if (!briefingPreview) { void conversation.reload(); if (historyOpen) void conversation.loadSessions() } }
     }
+  }
+  const resetConversationView = () => {
+    setReply(null); setCommand(''); setDraft(''); setPhase('idle'); setRequestError('')
+    setBriefingCards(null); setStageRequest(null); setExplored(false); setView('home'); setPanel('text')
+  }
+  const newConversation = () => {
+    if (flight.current || locked) return
+    conversation.startNew()
+    context.current = { selected_region_ids: [], start: 1, end: 200 }
+    resetConversationView(); setHistoryOpen(false)
+  }
+  const switchConversation = async (id: string) => {
+    if (flight.current || locked || conversation.loading) return
+    const selected = await conversation.reload(id)
+    if (!selected) return
+    context.current = selected.state.context ?? { selected_region_ids: [], start: 1, end: 200 }
+    resetConversationView()
   }
   const audio = useAudioPreview()
 
@@ -170,8 +203,8 @@ export default function App() {
   const restart = () => { home(); setSkipped(false); setReplay(v => v + 1) }
   const ready = stage === 'ready'
   const locked = !ready || audio.active || pending(phase) || (view === 'analysis' && analysisBusy)
-  const canSend = !locked && connection === 'ready' && (briefingPreview || (!!aiStatus?.enabled && !aiStatus.busy))
-  const inputStatus = briefingPreview ? '더미 미리보기 · “오늘 할 일 알려줘” · AI 호출·DB 저장 없음' : !aiStatus ? 'AI 서버 연결을 확인해 주세요.' : aiStatus.busy ? '이전 요청을 처리 중입니다.' : !aiStatus.enabled ? 'AI가 비활성 상태입니다. 서버 설정을 확인해 주세요.' : ''
+  const canSend = !locked && (briefingPreview || (!conversation.loading && !conversation.error)) && connection === 'ready' && (briefingPreview || (!!aiStatus?.enabled && !aiStatus.busy))
+  const inputStatus = !briefingPreview && conversation.loading ? '대화 기록을 불러오는 중입니다.' : !briefingPreview && conversation.error ? conversation.error : briefingPreview ? '더미 미리보기 · “오늘 할 일 알려줘” · AI 호출·DB 저장 없음' : !aiStatus ? 'AI 서버 연결을 확인해 주세요.' : aiStatus.busy ? '이전 요청을 처리 중입니다.' : !aiStatus.enabled ? 'AI가 비활성 상태입니다. 서버 설정을 확인해 주세요.' : ''
   const corePhase = phase === 'complete' && reply?.status === 'partial' ? 'error' : phase
   const coreState = interfaceState(corePhase !== 'error' && corePhase !== 'requesting' && view === 'analysis' && analysisBusy ? 'applying' : corePhase, connection !== 'error', !!aiStatus?.enabled, !!aiStatus?.busy, audio.active)
   const stateLabels = { standby: 'STANDBY', processing: 'PROCESSING', analyzing: 'ANALYZING', error: 'ERROR', paused: 'PAUSED', preview: 'AUDIO PREVIEW' }
@@ -179,7 +212,7 @@ export default function App() {
   const resultPanel = phase === 'idle' ? null : <ConversationPanel phase={phase} command={command} reply={reply} error={requestError} regions={data?.regions ?? []} locked={locked} docked={view === 'analysis'}
     onSelect={selectResult}
     onClose={() => { if (!flight.current) setResultOpen(false) }} />
-  const calculationReply = reply ? { ...reply, results: reply.results.filter(r => r.tool !== 'get_daily_briefing' && r.tool !== 'get_weather') } : null
+  const calculationReply = reply ? { ...reply, results: reply.results.filter(r => r.tool !== 'get_daily_briefing' && r.tool !== 'get_weather' && !isTaskTool(r.tool)) } : null
   const calculations = calculationReply?.results.length ? <CalculationResults reply={calculationReply} regions={data?.regions ?? []} locked={locked} onSelect={selectResult} /> : null
 
   return <div className={`app app--${stage} app--${view}${briefingCards ? ' has-briefing' : ''}${briefingCards && phase === 'applying' ? ' briefing-presenting' : ''}${panel ? ' app--composer-open' : ''}${audio.active ? ' app--preview' : ''}`}>
@@ -187,7 +220,15 @@ export default function App() {
     <header className="interface-header">
       <div className="brand"><h1>NERVIS</h1><span>NEURAL DATA EXPLORER</span></div>
       <div className="header-center"><i />INTERACTIVE NEURAL INTERFACE<i /></div>
+      <div className="header-actions">
+      {ready && <div className="conversation-controls">
+        <button disabled={locked || conversation.loading} onClick={() => { if (!historyOpen) void conversation.loadSessions(); setHistoryOpen(open => !open) }}>대화 기록{conversation.value ? ` · ${conversation.value.messages.length}` : ''}</button>
+        <button disabled={locked || conversation.loading} onClick={() => { void newConversation() }}>새 대화</button>
+        {conversation.error && <button disabled={locked || conversation.loading} onClick={() => { void conversation.reload() }}>기록 다시 불러오기</button>}
+        {conversation.notice && <small role="status">{conversation.notice}</small>}
+      </div>}
       <div className={`connection-chip state-${coreState}`} aria-live="polite"><span className="live-dot" />NERVIS / {stateLabels[coreState]}</div>
+      </div>
     </header>
 
     {(stage === 'title' || stage === 'dock') && <div className="intro-caption"><span>AN INTERFACE TO EXPLORE</span><p>기록 속의 관계를 발견하다</p></div>}
@@ -215,6 +256,10 @@ export default function App() {
       {ready && view === 'home' && briefingCards && <BriefingCards key={briefingCards.id} value={briefingCards.value} reduced={reduced} onReady={onCardsReady} />}
       {view === 'home' && resultOpen && resultPanel}
       {view === 'home' && !resultOpen && resultPanel && <button className="result-reopen" onClick={() => setResultOpen(true)}>응답 다시 열기</button>}
+      {ready && historyOpen && <ConversationHistory title={conversation.value?.title ?? '대화 기록'} messages={conversation.value?.messages ?? []}
+        sessions={conversation.sessions} sessionId={conversation.value?.id} hasMore={conversation.hasMore} loading={conversation.listLoading}
+        listError={conversation.listError} locked={locked || conversation.loading} onSelect={id => { void switchConversation(id) }}
+        onMore={() => { void conversation.loadSessions(true) }} onRefresh={() => { void conversation.loadSessions() }} onClose={() => setHistoryOpen(false)} />}
       <Composer canSend={canSend} status={inputStatus} onSend={() => { void send() }} panel={panel} draft={draft} onDraft={setDraft} closable={view === 'analysis' || panel === 'voice'} locked={locked}
         onToggle={target => setPanel(current => toggleComposer(current, target, view))}
         onClose={() => setPanel(view === 'home' ? 'text' : null)} />

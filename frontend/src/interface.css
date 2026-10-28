@@ -40,12 +40,16 @@
 .briefing-card li:first-child { border-top:0; padding-top:0; }
 .briefing-card li strong { display:block; font-size:12px; font-weight:400; overflow-wrap:anywhere; }
 .briefing-card time { display:block; font-size:10px; color:#9ae1f1; margin-bottom:3px; }
-.app--home.has-briefing .conversation-result { left:35px; right:auto; top:auto; bottom:200px; width:300px; max-height:220px; }
+.app--home.has-briefing .conversation-result { left:35px; right:auto; top:auto; bottom:200px; width:300px; max-height:calc(100% - 310px); }
+.briefing-task-group + .briefing-task-group { margin-top:14px; }
+.briefing-task-group h3 { margin:0 0 8px; font-size:12px; color:#a8dfef; font-weight:500; }
+.briefing-task-group h3 small { display:inline; margin-left:5px; }
+.briefing-task-group.group-overdue h3 { color:#efb48b; }
 @keyframes briefing-focus-in { from { opacity:0; filter:blur(10px); } to { opacity:1; filter:blur(0); } }
 @media(prefers-reduced-motion:reduce) { .briefing-card { animation:none; transition:none; } .app--home .core-stage { transition:none; } }
 @media(max-height:820px) { .briefing-card { padding:10px 14px; } .briefing-card li { padding:5px 0; } .briefing-card h2 { margin:4px 0 7px; } }
-@media(max-width:900px) { .briefing-cards { --dock-width:260px; left:20px; right:20px; } .briefing-cards.stage-docked { right:20px; } .app--home.has-briefing .conversation-result { left:20px; width:240px; max-height:140px; } .briefing-preview-control { left:20px; } }
-@media(max-width:650px) { .briefing-cards { --dock-width:230px; } .briefing-card { width:90%; left:50%; } .briefing-cards:not(.stage-docking):not(.stage-docked) .briefing-card { left:50%; } .briefing-cards:not(.stage-docking):not(.stage-docked) .briefing-card:not(.is-focused) { opacity:0; visibility:hidden; pointer-events:none; } .stage-overview .card-tasks { opacity:1 !important; visibility:visible !important; } .briefing-cards.stage-docked { top:270px; bottom:200px; } .stage-docked .briefing-card { opacity:1; } .app--home.has-briefing .conversation-result { top:140px; bottom:auto; max-height:115px; width:calc(100vw - 40px); } }
+@media(max-width:900px) { .briefing-cards { --dock-width:260px; left:20px; right:20px; } .briefing-cards.stage-docked { right:20px; } .app--home.has-briefing .conversation-result { left:20px; width:240px; } .briefing-preview-control { left:20px; } }
+@media(max-width:650px) { .briefing-cards { --dock-width:230px; } .briefing-card { width:90%; left:50%; } .briefing-cards:not(.stage-docking):not(.stage-docked) .briefing-card { left:50%; } .briefing-cards:not(.stage-docking):not(.stage-docked) .briefing-card:not(.is-focused) { opacity:0; visibility:hidden; pointer-events:none; } .stage-overview .card-tasks { opacity:1 !important; visibility:visible !important; } .briefing-cards.stage-docked { top:calc(122px + 40svh); bottom:200px; } .stage-docked .briefing-card { opacity:1; } .app--home.has-briefing .conversation-result { top:110px; bottom:auto; max-height:40svh; width:calc(100vw - 40px); } }
 .orbit-guide {
   width:min(74%,520px);
   border-color:#2e92cf2e;
@@ -607,3 +611,34 @@
   .selection-panel h3,.selection-panel>.quiet { display:block; }
   .region-metrics { display:grid; grid-template-columns:1fr auto; }
 }
+
+.header-actions { position:absolute; top:36px; right:46px; display:flex; align-items:center; gap:24px; }
+.header-actions .connection-chip { position:static; }
+.conversation-controls { display:flex; gap:12px; align-items:center; pointer-events:auto; font-size:11px; color:#b3d6e4; }
+.conversation-controls small { max-width:230px; font-size:10px; }
+.conversation-history { position:absolute; z-index:30; top:105px; right:35px; width:min(760px,calc(100vw - 40px)); bottom:190px; background:#06141ef5; padding:16px; pointer-events:auto; display:flex; flex-direction:column; }
+.conversation-history header { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:48px; flex-shrink:0; padding-bottom:12px; }
+.conversation-history h2 { margin:0; font-size:16px; font-weight:400; line-height:1.5; overflow-wrap:anywhere; }
+.conversation-history header button { font-size:22px; }
+.conversation-history-body { display:grid; grid-template-columns:210px minmax(0,1fr); gap:18px; min-height:0; flex:1; }
+.conversation-session-list { overflow:auto; border-right:1px solid #4f81984d; padding-right:12px; }
+.conversation-session-list button { width:100%; text-align:left; padding:10px 8px; border-bottom:1px solid #4f819833; }
+.conversation-session-list button.is-current { background:#153a4a; color:#ccf2ff; }
+.conversation-session-list strong { display:block; font-weight:400; font-size:12px; overflow-wrap:anywhere; }
+.conversation-session-list small { display:block; font-size:9px; color:#93b4c5; line-height:1.6; margin-top:5px; }
+.conversation-session-list p { font-size:12px; }
+.conversation-history-messages { overflow:auto; min-height:0; display:flex; flex-direction:column; align-items:flex-start; gap:16px; padding:4px 8px 12px 0; }
+.history-message { flex-shrink:0; max-width:90%; min-width:0; padding:12px 14px; border:1px solid #4f819833; background:#0a202bcc; font-size:14px; color:#e0edf4; overflow-wrap:anywhere; }
+.history-message > span { display:block; margin-bottom:10px; color:#7faec2; font-size:10px; line-height:1.5; }
+.history-message > span + * { margin-top:0; }
+.history-message p { line-height:1.65; }
+.history-message.role-user { align-self:flex-end; color:#9ce6f3; background:#153a4acc; border-color:#57afc655; }
+.history-message small { color:#efc58e; }
+@media(max-width:1200px) { .header-center { display:none; } }
+@media(max-width:1000px) { .header-actions { top:29px; right:27px; gap:16px; } }
+@media(max-width:650px) { .header-actions { top:68px; right:20px; gap:12px; } .conversation-controls { gap:10px; } .conversation-history { right:20px; top:120px; bottom:230px; } .conversation-history-body { grid-template-columns:1fr; grid-template-rows:minmax(90px,30%) minmax(0,1fr); } .conversation-session-list { border-right:0; border-bottom:1px solid #4f81984d; padding-right:0; } }
+
+.task-receipt-list { list-style:none; padding:0; margin:12px 0; }
+.task-receipt-list li { border-top:1px solid #4f81984d; padding:9px 0; }
+.task-receipt-list strong { display:block; font-size:13px; font-weight:400; color:#cfedf5; }
+.task-receipt-list small { display:block; margin-top:4px; font-size:11px; color:#9cbfce; }

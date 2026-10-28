@@ -7,6 +7,8 @@ import json
 import os
 from pathlib import Path
 from uuid import UUID
+from zoneinfo import ZoneInfo
+from backend.briefing import task_group
 
 from dotenv import dotenv_values
 from fastapi.encoders import jsonable_encoder
@@ -159,16 +161,19 @@ class PlannerStore:
 
     def update(self, table, entity_id, body):
         with self.connection() as conn:
-            current = self._row(conn, table, entity_id, lock=True)
-            changes = body.model_dump(exclude_unset=True)
-            merged = {**current, **changes}
-            model = TABLE_MODELS[table]
-            model.model_validate({name: merged[name] for name in model.model_fields})
-            if table == 'tasks' and 'status' in changes:
-                changes['completed_at'] = (current['completed_at'] or datetime.now(timezone.utc)) if changes['status'] == 'done' else None
-            query = sql.SQL('UPDATE {} SET {} WHERE id=%s RETURNING *').format(
-                sql.Identifier(table), sql.SQL(',').join(sql.SQL('{}=%s').format(sql.Identifier(k)) for k in changes))
-            return conn.execute(query, [*changes.values(), entity_id]).fetchone()
+            return self._update(conn, table, entity_id, body)
+
+    def _update(self, conn, table, entity_id, body):
+        current = self._row(conn, table, entity_id, lock=True)
+        changes = body.model_dump(exclude_unset=True)
+        merged = {**current, **changes}
+        model = TABLE_MODELS[table]
+        model.model_validate({name: merged[name] for name in model.model_fields})
+        if table == 'tasks' and 'status' in changes:
+            changes['completed_at'] = (current['completed_at'] or datetime.now(timezone.utc)) if changes['status'] == 'done' else None
+        query = sql.SQL('UPDATE {} SET {} WHERE id=%s RETURNING *').format(
+            sql.Identifier(table), sql.SQL(',').join(sql.SQL('{}=%s').format(sql.Identifier(k)) for k in changes))
+        return conn.execute(query, [*changes.values(), entity_id]).fetchone()
 
     def delete(self, table, entity_id):
         with self.connection() as conn:
@@ -181,8 +186,13 @@ class PlannerStore:
                                    'JOIN courses c ON c.id=m.course_id WHERE c.starts_on<=%s AND c.ends_on>=%s '
                                    'AND m.weekday=%s ORDER BY m.starts_at,m.id LIMIT 201',
                                    (day, day, day.isoweekday())).fetchall()
-            tasks = conn.execute("SELECT * FROM tasks WHERE status<>'done' AND (planned_on<=%s OR due_on<=%s) "
-                                 'ORDER BY due_on NULLS LAST, id LIMIT 201', (day, day)).fetchall()
-            return {'date': day, 'timezone': 'Asia/Seoul', 'classes': classes[:200], 'tasks': tasks[:200],
+            now = datetime.now(ZoneInfo('Asia/Seoul'))
+            tasks = conn.execute("SELECT * FROM tasks WHERE status<>'done' ORDER BY CASE "
+                                 "WHEN due_on<%(day)s OR (due_on=%(day)s AND %(day)s=%(today)s AND due_time<%(time)s) THEN 0 "
+                                 "WHEN planned_on=%(day)s OR due_on=%(day)s THEN 1 ELSE 2 END, "
+                                 'due_on NULLS LAST, due_time NULLS LAST, planned_on NULLS LAST, id LIMIT 201',
+                                 {'day':day,'today':now.date(),'time':now.time()}).fetchall()
+            return {'date': day, 'timezone': 'Asia/Seoul', 'classes': classes[:200],
+                    'tasks': [{**row,'task_group':task_group(row,day,now)} for row in tasks[:200]],
                     'has_more_classes': len(classes) > 200, 'has_more_tasks': len(tasks) > 200,
                     'weather': {'status': 'not_connected', 'location': location}}
