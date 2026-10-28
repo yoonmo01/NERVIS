@@ -2,6 +2,7 @@
 import asyncio
 import json
 import os
+import logging
 from pathlib import Path
 from time import monotonic
 from typing import Annotated
@@ -18,6 +19,7 @@ from backend.stt import get_stt, session_lock
 
 
 router = APIRouter(prefix='/api/tts', tags=['local response speech'])
+standby_lock = asyncio.Lock()
 ERRORS = {
     'model_missing': 'VoiceStudio에 설치된 OmniVoice 모델을 확인해 주세요. 자동 다운로드하지 않습니다.',
     'model_loading': 'VoiceStudio의 OmniVoice 로드가 완료되지 않았습니다. 앱의 모델 상태를 확인해 주세요.',
@@ -26,6 +28,47 @@ ERRORS = {
 
 class SpeechError(ValueError):
     pass
+
+
+async def warm_voice():
+    if session_lock.locked() or standby_lock.locked() or get_stt().lock.locked():
+        return False
+    async with standby_lock:
+        async with httpx.AsyncClient(base_url='http://127.0.0.1:3900', timeout=5, trust_env=False,
+                                     follow_redirects=False) as client:
+            await check_voice(client, configured_voice())
+            # get_model refreshes VoiceStudio's idle timer without synthesizing audio.
+            response = await client.post('/setup/warmup')
+            response.raise_for_status()
+    return True
+
+
+async def wait_for_standby(ws):
+    if not standby_lock.locked():
+        return
+    async def ready():
+        async with standby_lock:
+            pass
+    tasks = [asyncio.create_task(ready()), asyncio.create_task(ws.receive())]
+    try:
+        done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        if tasks[1] in done:
+            raise WebSocketDisconnect()
+        tasks[0].result()
+    finally:
+        for task in tasks: task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
+async def maintain_voice():
+    while True:
+        await asyncio.sleep(60)
+        try:
+            await asyncio.wait_for(warm_voice(), 65)
+        except Exception:
+            logging.getLogger(__name__).warning('Local TTS standby unavailable; check VoiceStudio')
+
+
 def configured_voice():
     values = {**dotenv_values(Path(__file__).resolve().parents[1] / '.env', interpolate=False), **os.environ}
     return (values.get('NERVIS_VOICESTUDIO_VOICE') or 'JARVIS').strip()
@@ -152,6 +195,7 @@ async def speech(ws: WebSocket):
         if len(raw) > 16000:
             raise ValueError('speech_request_limit')
         request = SpeechRequest.model_validate_json(raw)
+        await wait_for_standby(ws)
         if session_lock.locked() or get_stt().lock.locked():
             raise ValueError('speech_busy')
         # The same lock keeps STT decoding and TTS generation/playback apart.

@@ -9,6 +9,21 @@ from test_analysis import PackageCase
 
 
 class ApiTests(PackageCase):
+    def test_optional_speech_preload_and_background_cleanup(self):
+        import asyncio
+        from backend.app import create_app
+        events = []
+        async def warm(): events.append('ready'); return True
+        async def maintain():
+            events.append('maintaining')
+            try: await asyncio.Event().wait()
+            finally: events.append('stopped')
+        with patch('backend.app.warm_voice', side_effect=warm), patch('backend.app.maintain_voice', side_effect=maintain):
+            with TestClient(create_app(self.package, preload_speech=True), base_url='http://127.0.0.1') as client:
+                self.assertEqual(client.get('/api/health').status_code, 200)
+                self.assertEqual(events[:2], ['ready', 'maintaining'])
+            self.assertEqual(events[-1], 'stopped')
+
     def setUp(self):
         super().setUp()
         from backend.app import create_app

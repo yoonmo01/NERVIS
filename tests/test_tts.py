@@ -11,9 +11,48 @@ from starlette.websockets import WebSocketDisconnect
 
 from backend.tts import SpeechRequest, check_voice, relay, router, configured_voice, prepare_voice
 from unittest.mock import patch
+from threading import Lock
+from types import SimpleNamespace
 
 
 class TTSTests(unittest.TestCase):
+    def test_standby_refreshes_loaded_model_without_speech_generation(self):
+        from backend.tts import warm_voice
+        async def run():
+            calls = []
+            def handler(request):
+                from backend.tts import session_lock
+                self.assertFalse(session_lock.locked(), 'Standby must not look like another user speech session')
+                calls.append((request.method, request.url.path, request.content))
+                values = {'/health': {'status': 'ok', 'version': '0.5.7'},
+                          '/model/status': {'loaded': True, 'checkpoint': 'k2-fsa/OmniVoice'},
+                          '/profiles': [{'id': 'voice-id', 'name': 'JARVIS', 'language': 'Korean'}],
+                          '/setup/warmup': {'status': 'warmup_started'}}
+                return httpx.Response(200, json=values[request.url.path])
+            client = httpx.AsyncClient(base_url='http://127.0.0.1:3900', transport=httpx.MockTransport(handler))
+            with patch('backend.tts.httpx.AsyncClient', return_value=client), patch('backend.tts.configured_voice', return_value='JARVIS'), patch('backend.tts.get_stt', return_value=SimpleNamespace(lock=Lock())):
+                self.assertTrue(await warm_voice())
+            self.assertEqual([c for c in calls if c[0] != 'GET'], [('POST', '/setup/warmup', b'')])
+        asyncio.run(run())
+
+    def test_interactive_request_waits_for_standby_instead_of_failing_busy(self):
+        from backend.tts import standby_lock, wait_for_standby
+        async def run():
+            class Browser:
+                async def receive(self): await asyncio.Event().wait()
+            await standby_lock.acquire()
+            task = asyncio.create_task(wait_for_standby(Browser()))
+            try:
+                await asyncio.sleep(0)
+                self.assertFalse(task.done())
+                standby_lock.release()
+                await asyncio.wait_for(task, 1)
+            finally:
+                if standby_lock.locked(): standby_lock.release()
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+        asyncio.run(run())
+
     def test_disconnect_cancels_waiting_for_model_load(self):
         async def run():
             started, cancelled = asyncio.Event(), asyncio.Event()

@@ -54,7 +54,7 @@ export function Composer({ panel, draft, onDraft, onToggle, onClose, locked, clo
   }, [panel])
   return <section className={`composer${panel ? ' composer--open' : ''}`} aria-label="NERVIS 대화 입력" onTransitionEnd={e => {
     // The closed drawer is invisible, so restore focus after its opening transition.
-    if (e.target !== e.currentTarget || e.propertyName !== 'width') return
+    if (e.propertyName !== 'width' || (e.target !== e.currentTarget && (e.target as HTMLElement).id !== 'conversation-panel')) return
     const active = document.activeElement
     if (active && active !== document.body && !e.currentTarget.contains(active)) return
     if (panel) textInput.current?.focus()

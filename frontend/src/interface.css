@@ -523,6 +523,22 @@
   flex:1;
   min-width:0
 }
+/* Anchor the drawer beside fixed launchers so opening never pushes it upward. */
+.app .composer { width:86px; }
+.app .composer-launchers { margin-top:0; }
+.app .composer-panel {
+  position:absolute;
+  right:calc(100% + 12px);
+  bottom:calc(50% - 34px);
+  width:0;
+  max-height:none;
+  transform:translateX(8px);
+  transition:width .32s cubic-bezier(.2,.8,.2,1),opacity .24s,transform .32s,visibility .32s;
+}
+.app .composer--open .composer-panel { width:min(650px,calc(50vw - 74px)); transform:translateX(0); }
+.app .composer-field { margin:0; animation:none; }
+.app .composer-heading { position:absolute; right:0; bottom:calc(100% + 4px); margin:0; }
+.app .composer-status { position:absolute; top:calc(100% + 5px); left:0; margin:0; }
 .field-mode-button{
   width:44px;
   height:44px;

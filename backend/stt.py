@@ -136,6 +136,11 @@ async def stream(ws: WebSocket, service: LocalSTT = Depends(get_stt)):
         await ws.close(code=1008)
         return
     await ws.accept()
+    from backend.tts import wait_for_standby
+    try:
+        await wait_for_standby(ws)
+    except WebSocketDisconnect:
+        return
     if session_lock.locked() or service.status().get('busy', False):
         await ws.send_json({'type': 'error', 'message': '다른 받아쓰기가 실행 중입니다.'})
         await ws.close()

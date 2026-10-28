@@ -1,5 +1,7 @@
 """Local data API and explicitly budgeted, opt-in BAZE analysis commands."""
 from contextlib import asynccontextmanager
+import asyncio
+import logging
 from datetime import date as Date
 from pathlib import Path
 from typing import Annotated, Literal
@@ -24,6 +26,7 @@ from backend.planner import PlannerError
 from backend.planner_api import router as planner_router
 from backend.stt import router as stt_router
 from backend.tts import router as tts_router
+from backend.tts import warm_voice, maintain_voice
 from backend.planner_api import briefing_result, get_weather
 from backend.schemas import CompareRequest, DetailedRequest, PairsRequest, TimeseriesRequest, WindowsRequest, RegionAnalysisRequest
 from scripts.prepare_app_data import fingerprint
@@ -45,12 +48,13 @@ Data = Annotated[Dataset, Depends(get_dataset)]
 
 
 def create_app(package_dir: Path = DEFAULT_PACKAGE, *, ai_service: AnalysisAI | None = None,
-               planner_store=None, weather_service=None, conversation_store=None) -> FastAPI:
+               planner_store=None, weather_service=None, conversation_store=None, preload_speech=False) -> FastAPI:
     package = Path(package_dir).resolve()
     ai_init_lock = Lock()
 
     @asynccontextmanager
     async def lifespan(application):
+        speech_task = None
         try:
             application.state.dataset = load_dataset(package)
         except ValueError as exc:
@@ -60,8 +64,18 @@ def create_app(package_dir: Path = DEFAULT_PACKAGE, *, ai_service: AnalysisAI | 
             application.state.planner_store = planner_store
             application.state.weather_service = weather_service
             application.state.conversation_store = conversation_store
+            if preload_speech:
+                try:
+                    ready = await asyncio.wait_for(warm_voice(), 65)
+                    logging.getLogger('uvicorn.error').info('Local TTS ready' if ready else 'Local TTS busy; standby postponed')
+                except Exception:
+                    logging.getLogger('uvicorn.error').warning('Local TTS preload unavailable; continuing without speech')
+                speech_task = asyncio.create_task(maintain_voice())
             yield
         finally:
+            if speech_task:
+                speech_task.cancel()
+                await asyncio.gather(speech_task, return_exceptions=True)
             del application.state.dataset
             del application.state.ai_service
             del application.state.planner_store
@@ -227,4 +241,4 @@ def create_app(package_dir: Path = DEFAULT_PACKAGE, *, ai_service: AnalysisAI | 
     return application
 
 
-app = create_app()
+app = create_app(preload_speech=True)
