@@ -75,8 +75,8 @@ export function makeCoreGeometry(dense = false) {
   return { shell: new Float32Array(shell), inner: new Float32Array(inner), panels: new Float32Array(panels), particles: new Float32Array(particles), glow }
 }
 
-export type CoreState = 'standby' | 'processing' | 'analyzing' | 'error' | 'paused' | 'preview'
-export const coreStateColors: Record<CoreState, string> = { standby: '#68c9ff', processing: '#ff6a00', analyzing: '#61f0de', error: '#ff626e', paused: '#7193af', preview: '#68c9ff' }
+export type CoreState = 'standby' | 'processing' | 'analyzing' | 'error' | 'paused' | 'preview' | 'speaking'
+export const coreStateColors: Record<CoreState, string> = { standby: '#68c9ff', processing: '#ff6a00', analyzing: '#61f0de', error: '#ff626e', paused: '#7193af', preview: '#68c9ff', speaking: '#68c9ff' }
 
 export function coreMotion(elapsed: number, level: number, reduced: boolean, state: CoreState = 'standby') {
   const t = reduced || !Number.isFinite(elapsed) ? 0 : elapsed

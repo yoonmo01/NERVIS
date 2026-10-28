@@ -12,6 +12,8 @@ import type { Region, Summary } from './api.ts'
 import { INTRO, introStage, toggleComposer } from './model.ts'
 import type { ComposerPanel, IntroStage } from './model.ts'
 import { useAudioPreview } from './audio.ts'
+import { useSpeech } from './useSpeech.ts'
+import type { VoiceProfile } from './tts.ts'
 import { Composer, Icon } from './Interface.tsx'
 import ConversationPanel, { CalculationResults } from './ConversationPanel.tsx'
 import { checkedReply, viewSelection, pending, aiErrorMessage, interfaceState } from './conversation.ts'
@@ -41,6 +43,7 @@ export default function App() {
   const [panel, setPanel] = useState<ComposerPanel>('text')
   const [draft, setDraft] = useState('')
   const [voiceActive, setVoiceActive] = useState(false)
+  const [voiceProfile, setVoiceProfile] = useState<VoiceProfile>('JARVIS')
   const [briefingPreview, setBriefingPreview] = useState(false)
   const [briefingCards, setBriefingCards] = useState<{ id: number; value: Briefing } | null>(null)
   const cardsFlight = useRef(false)
@@ -169,6 +172,7 @@ export default function App() {
     resetConversationView()
   }
   const audio = useAudioPreview()
+  const speech = useSpeech()
 
   useEffect(() => {
     setStage(introStage(0, reduced || skipped))
@@ -203,12 +207,13 @@ export default function App() {
   const home = () => { audio.stop(); setPanel('text'); setView('home') }
   const restart = () => { home(); setSkipped(false); setReplay(v => v + 1) }
   const ready = stage === 'ready'
-  const locked = !ready || audio.active || pending(phase) || (view === 'analysis' && analysisBusy)
+  const locked = !ready || audio.active || speech.active || pending(phase) || (view === 'analysis' && analysisBusy)
   const canSend = !locked && (briefingPreview || (!conversation.loading && !conversation.error)) && connection === 'ready' && (briefingPreview || (!!aiStatus?.enabled && !aiStatus.busy))
   const inputStatus = !briefingPreview && conversation.loading ? '대화 기록을 불러오는 중입니다.' : !briefingPreview && conversation.error ? conversation.error : briefingPreview ? '더미 미리보기 · “오늘 할 일 알려줘” · AI 호출·DB 저장 없음' : !aiStatus ? 'AI 서버 연결을 확인해 주세요.' : aiStatus.busy ? '이전 요청을 처리 중입니다.' : !aiStatus.enabled ? 'AI가 비활성 상태입니다. 서버 설정을 확인해 주세요.' : ''
   const corePhase = phase === 'complete' && reply?.status === 'partial' ? 'error' : phase
-  const coreState = interfaceState(corePhase !== 'error' && corePhase !== 'requesting' && view === 'analysis' && analysisBusy ? 'applying' : corePhase, connection !== 'error', !!aiStatus?.enabled, !!aiStatus?.busy, audio.active)
-  const stateLabels = { standby: 'STANDBY', processing: 'PROCESSING', analyzing: 'ANALYZING', error: 'ERROR', paused: 'PAUSED', preview: 'AUDIO PREVIEW' }
+  const coreState = speech.active ? speech.phase === 'speaking' ? 'speaking' : 'processing'
+    : interfaceState(corePhase !== 'error' && corePhase !== 'requesting' && view === 'analysis' && analysisBusy ? 'applying' : corePhase, connection !== 'error', !!aiStatus?.enabled, !!aiStatus?.busy, audio.active)
+  const stateLabels = { standby: 'STANDBY', processing: 'PROCESSING', analyzing: 'ANALYZING', error: 'ERROR', paused: 'PAUSED', preview: 'AUDIO PREVIEW', speaking: 'SPEAKING' }
   const selectResult = (selection: StageSelection) => { if (!flight.current && !locked) { setRequestError(''); applySelection(selection) } }
   const resultPanel = phase === 'idle' ? null : <ConversationPanel phase={phase} command={command} reply={reply} error={requestError} regions={data?.regions ?? []} locked={locked} docked={view === 'analysis'}
     onSelect={selectResult}
@@ -238,7 +243,7 @@ export default function App() {
     <div className={`core-stage state-${coreState}`} aria-hidden="true">
       <div className="core-aura" />
       <div className="orbit-guide"><span className="orbit-notch n1" /><span className="orbit-notch n2" /><span className="orbit-notch n3" /></div>
-      {(stage === 'core' || ready) && <CoreScene level={audio.level} reduced={reduced} state={coreState} dense={view === 'home'} />}
+      {(stage === 'core' || ready) && <CoreScene level={speech.active ? speech.level : audio.level} reduced={reduced} state={coreState} dense={view === 'home'} />}
       <div className="core-crosshair ch-left" /><div className="core-crosshair ch-right" />
     </div>
 
@@ -247,8 +252,8 @@ export default function App() {
         <div className={`core-caption state-${coreState}`}><span className="live-dot" />NERVIS / {stateLabels[coreState]}<small>PROCEDURAL CORE · LOCAL RENDER</small></div>
       </section>
 
-      {explored && data && <div className="analysis-container" inert={audio.active || pending(phase)} hidden={view !== 'analysis'}>
-        <AnalysisView key={stageRequest?.id ?? 'preview'} request={stageRequest} onApplied={onApplied} onContext={onContext} regions={data.regions} version={data.summary.dataset_version} active={view === 'analysis'} blocked={audio.active || phase === 'requesting'} reduced={reduced} onBusyChange={onStageBusy} response={resultPanel} calculations={calculations} tab={analysisTab} onTab={setAnalysisTab} />
+      {explored && data && <div className="analysis-container" inert={audio.active || speech.active || pending(phase)} hidden={view !== 'analysis'}>
+        <AnalysisView key={stageRequest?.id ?? 'preview'} request={stageRequest} onApplied={onApplied} onContext={onContext} regions={data.regions} version={data.summary.dataset_version} active={view === 'analysis'} blocked={audio.active || speech.active || phase === 'requesting'} reduced={reduced} onBusyChange={onStageBusy} response={resultPanel} calculations={calculations} tab={analysisTab} onTab={setAnalysisTab} />
       </div>}
     </main>
 
@@ -269,7 +274,15 @@ export default function App() {
           <button className="local-view-button" disabled={locked || (view === 'home' && connection !== 'ready')} onClick={view === 'home' ? explore : home}>
             {view === 'home' ? '분석 화면 미리보기 ↗' : '대화 홈으로 ↖'}</button>
         </div>
-        <button className={`sound-preview${audio.active ? ' active' : ''}`} disabled={pending(phase) || !ready || (view === 'analysis' && analysisBusy)} onClick={() => audio.active ? audio.stop() : void audio.play()}>
+        <div className="speech-actions" aria-label="로컬 응답 음성">
+          <select aria-label="응답 음성 프로필" value={voiceProfile} disabled={speech.active} onChange={e => setVoiceProfile(e.target.value as VoiceProfile)}>
+            <option value="JARVIS">JARVIS</option><option value="JARVIS_2">JARVIS_2</option>
+          </select>
+          {speech.active ? <button onClick={speech.stop}>읽기 중지</button>
+            : <button disabled={locked || voiceActive || !reply?.model_acknowledgement} onClick={() => { void speech.play(reply!.model_acknowledgement!, voiceProfile) }}>응답 읽기</button>}
+          <span role="status">{speech.phase === 'preparing' ? '로컬 음성 준비 중' : speech.phase === 'speaking' ? '응답 재생 중' : '로컬 TTS · 수동 재생'}</span>
+        </div>
+        <button className={`sound-preview${audio.active ? ' active' : ''}`} disabled={speech.active || voiceActive || pending(phase) || !ready || (view === 'analysis' && analysisBusy)} onClick={() => audio.active ? audio.stop() : void audio.play()}>
           <Icon name="sound" />{audio.active ? '미리보기 중지' : '코어 음량 반응 미리보기'}<small>로컬 합성음 · AI 음성 아님</small>
         </button>
         <button className="replay-button" onClick={restart} disabled={locked}>시작 연출 다시 보기 ↗</button>
@@ -277,6 +290,6 @@ export default function App() {
       {!aiStatus && ready && <div className="ai-connection-error" role="status">AI 서버 연결을 확인하지 못했습니다. <button disabled={pending(phase)} onClick={() => { void refreshAI() }}>다시 확인</button></div>}
       {connection === 'error' && <div className="shell-error" role="alert"><p>{connectionError}</p><button onClick={() => setRetry(v => v + 1)}>서버 연결 다시 확인</button></div>}
     </div>
-    {audio.error && <p className="audio-error" role="alert">{audio.error}</p>}
+    {(speech.error || audio.error) && <p className="audio-error" role="alert">{speech.error || audio.error}</p>}
   </div>
 }
