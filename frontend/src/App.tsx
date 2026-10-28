@@ -13,7 +13,6 @@ import { INTRO, introStage, toggleComposer } from './model.ts'
 import type { ComposerPanel, IntroStage } from './model.ts'
 import { useAudioPreview } from './audio.ts'
 import { useSpeech } from './useSpeech.ts'
-import type { VoiceProfile } from './tts.ts'
 import { Composer, Icon } from './Interface.tsx'
 import ConversationPanel, { CalculationResults } from './ConversationPanel.tsx'
 import { checkedReply, viewSelection, pending, aiErrorMessage, interfaceState } from './conversation.ts'
@@ -43,7 +42,6 @@ export default function App() {
   const [panel, setPanel] = useState<ComposerPanel>('text')
   const [draft, setDraft] = useState('')
   const [voiceActive, setVoiceActive] = useState(false)
-  const [voiceProfile, setVoiceProfile] = useState<VoiceProfile>('JARVIS')
   const [briefingPreview, setBriefingPreview] = useState(false)
   const [briefingCards, setBriefingCards] = useState<{ id: number; value: Briefing } | null>(null)
   const cardsFlight = useRef(false)
@@ -97,6 +95,10 @@ export default function App() {
     if (expectedStage.current !== id) return
     expectedStage.current = error ? id : null; flight.current = false
     setRequestError(error ? `계산 결과는 받았지만 화면 적용에 실패했습니다: ${error}` : '')
+    if (error) {
+      speech.stop()
+      void speech.play(`계산 결과는 받았지만 화면 적용에 실패했습니다: ${error}`)
+    }
     setPhase(error ? 'error' : 'complete')
   }, [])
   const onStageBusy = useCallback((busy: boolean) => {
@@ -113,6 +115,7 @@ export default function App() {
   const send = async () => {
     if (flight.current || locked || voiceActive || (!briefingPreview && (!aiStatus?.enabled || aiStatus.busy)) || !draft.trim() || !data) return
     flight.current = true; expectedStage.current = null
+    speech.prepare()
     const submitted = draft.trim(), current = new AbortController()
     controller.current = current
     setCommand(submitted); setReply(null); setRequestError(''); setPhase('requesting'); setResultOpen(true); setAnalysisTab('response')
@@ -136,6 +139,7 @@ export default function App() {
       const selection = viewSelection(response)
       const briefing = briefingFromResults(response.results)
       setReply(response); setDraft('')
+      void speech.play(response.model_acknowledgement?.trim() || '요청 결과를 화면에서 확인해 주세요.')
       if (selection) applySelection(selection)
       else if (response.results.some(result => isTaskTool(result.tool))) { setView('home'); setPanel('text'); setPhase('complete'); flight.current = false }
       else if (briefing) {
@@ -145,9 +149,10 @@ export default function App() {
       else { flight.current = false; setPhase('complete') }
     } catch (error) {
       if (!mounted.current) return
-      setRequestError(error instanceof ApiError ? aiErrorMessage(error.code) : error instanceof DOMException && error.name === 'AbortError'
+      const message = error instanceof ApiError ? aiErrorMessage(error.code) : error instanceof DOMException && error.name === 'AbortError'
         ? '응답 대기 시간이 지났습니다. 서버 처리가 계속될 수 있어 자동 재전송하지 않습니다.'
-        : error instanceof Error ? error.message : '요청을 완료하지 못했습니다.')
+        : error instanceof Error ? error.message : '요청을 완료하지 못했습니다.'
+      setRequestError(message); void speech.play(message)
       setPhase('error'); flight.current = false
     } finally {
       clearTimeout(timeout); controller.current = null
@@ -275,12 +280,8 @@ export default function App() {
             {view === 'home' ? '분석 화면 미리보기 ↗' : '대화 홈으로 ↖'}</button>
         </div>
         <div className="speech-actions" aria-label="로컬 응답 음성">
-          <select aria-label="응답 음성 프로필" value={voiceProfile} disabled={speech.active} onChange={e => setVoiceProfile(e.target.value as VoiceProfile)}>
-            <option value="JARVIS">JARVIS</option><option value="JARVIS_2">JARVIS_2</option>
-          </select>
-          {speech.active ? <button onClick={speech.stop}>읽기 중지</button>
-            : <button disabled={locked || voiceActive || !reply?.model_acknowledgement} onClick={() => { void speech.play(reply!.model_acknowledgement!, voiceProfile) }}>응답 읽기</button>}
-          <span role="status">{speech.phase === 'preparing' ? '로컬 음성 준비 중' : speech.phase === 'speaking' ? '응답 재생 중' : '로컬 TTS · 수동 재생'}</span>
+          {speech.active && <button onClick={speech.stop}>음성 중지</button>}
+          <span role="status">{speech.phase === 'preparing' ? '로컬 음성 준비 중' : speech.phase === 'speaking' ? '응답 재생 중' : ''}</span>
         </div>
         <button className={`sound-preview${audio.active ? ' active' : ''}`} disabled={speech.active || voiceActive || pending(phase) || !ready || (view === 'analysis' && analysisBusy)} onClick={() => audio.active ? audio.stop() : void audio.play()}>
           <Icon name="sound" />{audio.active ? '미리보기 중지' : '코어 음량 반응 미리보기'}<small>로컬 합성음 · AI 음성 아님</small>

@@ -56,10 +56,10 @@ function browser(t: TestContext) {
 
 test('first PCM starts before generation finishes; chunks retain order and unlock after playback', async t => {
   const env = browser(t), player = new SpeechPlayer(() => {})
-  await player.play('첫 문장. 다음 문장.', 'JARVIS')
+  await player.play('첫 문장. 다음 문장.')
   const socket = env.Socket.instances[0]
   socket.onopen?.()
-  assert.deepEqual(JSON.parse(socket.sent[0]), { text: '첫 문장. 다음 문장.', voice: 'JARVIS' })
+  assert.deepEqual(JSON.parse(socket.sent[0]), { text: '첫 문장. 다음 문장.' })
   socket.message({ type: 'start', sample_rate: 24000, channels: 1, format: 'pcm16' })
   socket.message(new ArrayBuffer(9600))
   assert.equal(player.state.phase, 'speaking')
@@ -77,9 +77,21 @@ test('first PCM starts before generation finishes; chunks retain order and unloc
   assert.equal(env.counts().closes, 1)
 })
 
+test('sending can prime autoplay without generating speech and the reply reuses that context', async t => {
+  const env = browser(t), player = new SpeechPlayer(() => {})
+  await player.prepare()
+  assert.equal(env.Socket.instances.length, 0)
+  await player.play('자동 응답입니다.')
+  assert.equal(env.counts().closes, 0)
+  env.Socket.instances[0].onopen?.()
+  assert.deepEqual(JSON.parse(env.Socket.instances[0].sent[0]), { text: '자동 응답입니다.' })
+  player.stop()
+  assert.equal(env.counts().closes, 1)
+})
+
 test('stop cancels queued audio, closes transport, and ignores late PCM', async t => {
   const env = browser(t), player = new SpeechPlayer(() => {})
-  await player.play('응답입니다.', 'JARVIS_2')
+  await player.play('응답입니다.')
   const socket = env.Socket.instances[0]
   socket.message({ type: 'start', sample_rate: 24000, channels: 1, format: 'pcm16' })
   socket.message(new ArrayBuffer(9600))
@@ -92,14 +104,14 @@ test('stop cancels queued audio, closes transport, and ignores late PCM', async 
 
 test('invalid metadata and network failure release the audio context without retry', async t => {
   const env = browser(t), player = new SpeechPlayer(() => {})
-  await player.play('응답입니다.', 'JARVIS')
+  await player.play('응답입니다.')
   env.Socket.instances[0].message(new ArrayBuffer(2))
   assert.equal(player.state.phase, 'error')
-  await player.play('응답입니다.', 'JARVIS')
+  await player.play('응답입니다.')
   env.Socket.instances[1].onclose?.()
   assert.equal(player.state.phase, 'error')
   assert.equal(env.counts().closes, 2)
-  await player.play('가'.repeat(2001), 'JARVIS')
+  await player.play('가'.repeat(2001))
   assert.equal(player.state.phase, 'error')
   assert.equal(env.Socket.instances.length, 2)
 })

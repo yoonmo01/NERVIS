@@ -1,7 +1,10 @@
 """Bounded, local-only VoiceStudio speech relay; no generated audio is saved."""
 import asyncio
 import json
-from typing import Annotated, Literal
+import os
+from pathlib import Path
+from typing import Annotated
+from dotenv import dotenv_values
 
 import httpx
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -14,12 +17,13 @@ from backend.stt import get_stt, session_lock
 
 
 router = APIRouter(prefix='/api/tts', tags=['local response speech'])
-PROFILES = {'JARVIS': 'f0c26d84', 'JARVIS_2': '8f10d4a1'}
+def configured_voice():
+    values = {**dotenv_values(Path(__file__).resolve().parents[1] / '.env', interpolate=False), **os.environ}
+    return (values.get('NERVIS_VOICESTUDIO_VOICE') or 'JARVIS').strip()
 
 
 class SpeechRequest(RequestModel):
     text: Annotated[str, Field(min_length=1, max_length=2000)]
-    voice: Literal['JARVIS', 'JARVIS_2'] = 'JARVIS'
 
     @field_validator('text')
     @classmethod
@@ -31,20 +35,22 @@ class SpeechRequest(RequestModel):
 
 async def check_voice(client, voice):
     responses = await asyncio.gather(*(client.get(path) for path in
-        ('/health', '/model/status', f'/profiles/{PROFILES[voice]}')))
+        ('/health', '/model/status', '/profiles')))
     for response in responses:
         response.raise_for_status()
-    health, model, profile = (response.json() for response in responses)
+    health, model, profiles = (response.json() for response in responses)
     if health.get('version') != '0.5.7' or health.get('status') != 'ok':
         raise ValueError('unsupported_voice_studio')
     if model.get('loaded') is not True or model.get('checkpoint') != 'k2-fsa/OmniVoice':
         raise ValueError('load_local_omnivoice_first')
-    if profile.get('id') != PROFILES[voice] or profile.get('language') != 'Korean':
+    matches = [p for p in profiles if p.get('id') == voice or p.get('name') == voice] if isinstance(profiles, list) else []
+    if len(matches) != 1 or matches[0].get('language') != 'Korean' or not isinstance(matches[0].get('id'), str):
         raise ValueError('saved_korean_voice_missing')
+    return matches[0]['id']
 
 
-async def relay(ws, upstream, request):
-    await upstream.send(json.dumps({'text': request.text, 'voice': PROFILES[request.voice],
+async def relay(ws, upstream, request, voice_id):
+    await upstream.send(json.dumps({'text': request.text, 'voice': voice_id,
                                     'language': 'Korean', 'engine': 'omnivoice'}))
     generated = asyncio.Event()
     tasks = []
@@ -115,10 +121,10 @@ async def speech(ws: WebSocket):
         async with session_lock:
             async with httpx.AsyncClient(base_url='http://127.0.0.1:3900', timeout=5, trust_env=False,
                                          follow_redirects=False) as client:
-                await check_voice(client, request.voice)
+                voice_id = await check_voice(client, configured_voice())
             async with connect('ws://127.0.0.1:3900/ws/tts', proxy=None, open_timeout=5,
                                close_timeout=2, max_size=64000) as upstream:
-                await asyncio.wait_for(relay(ws, upstream, request), 300)
+                await asyncio.wait_for(relay(ws, upstream, request, voice_id), 300)
     except WebSocketDisconnect:
         pass
     except Exception:

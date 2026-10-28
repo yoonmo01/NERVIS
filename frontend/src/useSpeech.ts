@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { SpeechPlayer } from './tts.ts'
-import type { SpeechState, VoiceProfile } from './tts.ts'
+import type { SpeechState } from './tts.ts'
 
 export function useSpeech() {
   const [state, setState] = useState<SpeechState>({ phase: 'idle', error: '' })
@@ -18,5 +18,9 @@ export function useSpeech() {
     }
   }, [])
   return { ...state, level, active: state.phase === 'preparing' || state.phase === 'speaking',
-    play: (text: string, voice: VoiceProfile) => player.current?.play(text, voice), stop: () => player.current?.stop() }
+    prepare: () => {
+      // Audio availability must not prevent the text request from running.
+      try { void player.current?.prepare().catch(() => {}) } catch { /* play reports the audio error. */ }
+    },
+    play: (text: string) => document.hidden ? undefined : player.current?.play(text), stop: () => player.current?.stop() }
 }

@@ -1,6 +1,5 @@
 import { audioLevel } from './model.ts'
 
-export type VoiceProfile = 'JARVIS' | 'JARVIS_2'
 export type SpeechState = { phase: 'idle' | 'preparing' | 'speaking' | 'error'; error: string }
 
 export function speechText(value: string): string {
@@ -55,15 +54,18 @@ export class SpeechPlayer {
   }
   private fail(message: string) { this.release(); this.set({ phase: 'error', error: message }) }
   stop() { this.release(); this.set({ phase: 'idle', error: '' }) }
+  prepare() {
+    if (!this.context) this.context = new AudioContext()
+    return this.context.resume()
+  }
   private finish() {
     if (!this.generated || this.sources.size) return
     try { this.socket?.send(JSON.stringify({ type: 'playback.finished' })) } catch { /* Playback already finished. */ }
     this.release(); this.set({ phase: 'idle', error: '' })
   }
-  async play(value: string, voice: VoiceProfile) {
+  async play(value: string) {
     if (this.state.phase === 'preparing' || this.state.phase === 'speaking') return
-    this.stop()
-    const generation = this.generation
+    const generation = ++this.generation
     const current = () => this.generation === generation
     this.set({ phase: 'preparing', error: '' })
     this.sampleRate = 0; this.nextAt = 0; this.generated = false
@@ -71,11 +73,11 @@ export class SpeechPlayer {
     try {
       const text = speechText(value)
       if (!text || text.length > 2000) throw new Error('읽을 응답은 1~2000자여야 합니다. 화면의 응답은 그대로 유지됩니다.')
-      const context = new AudioContext()
+      const context = this.context ?? new AudioContext()
       this.context = context
       await context.resume()
       if (!current()) return
-      if (context.state === 'suspended') throw new Error('브라우저에서 소리를 허용한 뒤 응답 읽기를 다시 눌러 주세요.')
+      if (context.state === 'suspended') throw new Error('자동 음성 재생이 차단됐습니다. 브라우저에서 이 사이트의 소리를 허용해 주세요.')
       const analyser = context.createAnalyser()
       analyser.fftSize = 256; analyser.connect(context.destination); this.analyser = analyser
       const samples = new Float32Array(analyser.fftSize)
@@ -87,7 +89,7 @@ export class SpeechPlayer {
       tick()
       const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/tts/stream`)
       this.socket = socket; socket.binaryType = 'arraybuffer'
-      socket.onopen = () => { if (current()) socket.send(JSON.stringify({ text, voice })) }
+      socket.onopen = () => { if (current()) socket.send(JSON.stringify({ text })) }
       socket.onerror = () => this.fail('로컬 TTS 서버 연결에 실패했습니다. VoiceStudio와 NERVIS 서버를 확인해 주세요.')
       socket.onclose = () => this.fail('음성 연결이 완료 전에 끊겼습니다. 자동 재시도하지 않습니다.')
       socket.onmessage = event => {

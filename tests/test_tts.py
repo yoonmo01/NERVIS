@@ -9,10 +9,19 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from starlette.websockets import WebSocketDisconnect
 
-from backend.tts import SpeechRequest, check_voice, relay, router
+from backend.tts import SpeechRequest, check_voice, relay, router, configured_voice
+from unittest.mock import patch
 
 
 class TTSTests(unittest.TestCase):
+    def test_voice_configuration_uses_server_env_with_default_and_no_browser_override(self):
+        with patch('backend.tts.dotenv_values', return_value={}), patch('backend.tts.os.environ', {}):
+            self.assertEqual(configured_voice(), 'JARVIS')
+        with patch('backend.tts.dotenv_values', return_value={'NERVIS_VOICESTUDIO_VOICE': 'JARVIS'}), patch('backend.tts.os.environ', {'NERVIS_VOICESTUDIO_VOICE': 'JARVIS_2'}):
+            self.assertEqual(configured_voice(), 'JARVIS_2')
+        with self.assertRaises(ValidationError):
+            SpeechRequest.model_validate({'text': '안녕', 'voice': 'JARVIS'})
+
     def test_request_rejects_empty_long_unknown_voice_and_external_endpoint(self):
         for payload in ({'text': ' '}, {'text': '가' * 2001}, {'text': '안녕', 'voice': 'other'},
                         {'text': '안녕', 'url': 'https://example.com'}):
@@ -30,19 +39,23 @@ class TTSTests(unittest.TestCase):
                 self.assertEqual(request.method, 'GET')
                 value = {'/health': {'status': 'ok', 'version': '0.5.7'},
                          '/model/status': {'loaded': True, 'checkpoint': 'k2-fsa/OmniVoice'},
-                         '/profiles/f0c26d84': {'id': 'f0c26d84', 'language': 'Korean'}}[request.url.path]
+                         '/profiles': [{'id': 'f0c26d84', 'name': 'JARVIS', 'language': 'Korean'},
+                                       {'id': '8f10d4a1', 'name': 'JARVIS_2', 'language': 'Korean'}]}[request.url.path]
                 return httpx.Response(200, json=value)
 
             async with httpx.AsyncClient(base_url='http://127.0.0.1:3900', transport=httpx.MockTransport(handler)) as client:
-                await check_voice(client, 'JARVIS')
-            self.assertEqual(set(paths), {'/health', '/model/status', '/profiles/f0c26d84'})
+                self.assertEqual(await check_voice(client, 'JARVIS'), 'f0c26d84')
+                self.assertEqual(await check_voice(client, 'JARVIS_2'), '8f10d4a1')
+                self.assertEqual(await check_voice(client, '8f10d4a1'), '8f10d4a1')
+                with self.assertRaises(ValueError): await check_voice(client, 'missing')
+            self.assertEqual(set(paths), {'/health', '/model/status', '/profiles'})
 
             for model in ({'loaded': False, 'checkpoint': 'k2-fsa/OmniVoice'},
                           {'loaded': True, 'checkpoint': 'unapproved-engine'}):
                 def invalid_model(request):
                     value = model if request.url.path == '/model/status' else (
                         {'status': 'ok', 'version': '0.5.7'} if request.url.path == '/health'
-                        else {'id': 'f0c26d84', 'language': 'Korean'})
+                        else [{'id': 'f0c26d84', 'name': 'JARVIS', 'language': 'Korean'}])
                     return httpx.Response(200, json=value)
                 async with httpx.AsyncClient(base_url='http://127.0.0.1:3900', transport=httpx.MockTransport(invalid_model)) as client:
                     with self.assertRaises(ValueError):
@@ -74,7 +87,7 @@ class TTSTests(unittest.TestCase):
                     yield json.dumps({'type': 'done'})
 
             studio = Studio()
-            await relay(Browser(), studio, SpeechRequest(text='한국어 응답.'))
+            await relay(Browser(), studio, SpeechRequest(text='한국어 응답.'), 'f0c26d84')
             self.assertEqual(studio.request, {'text': '한국어 응답.', 'voice': 'f0c26d84', 'language': 'Korean', 'engine': 'omnivoice'})
             self.assertEqual(output, [{'type': 'start', 'sample_rate': 24000, 'channels': 1, 'format': 'pcm16'}, b'\0\0\1\0', {'type': 'done'}])
         asyncio.run(run())
@@ -111,7 +124,7 @@ class TTSTests(unittest.TestCase):
                     yield b'\0\0'
                     yield json.dumps({'type': 'done'})
 
-            task = asyncio.create_task(relay(Browser(), Studio(), SpeechRequest(text='응답.')))
+            task = asyncio.create_task(relay(Browser(), Studio(), SpeechRequest(text='응답.'), 'f0c26d84'))
             try:
                 await asyncio.wait_for(generated.wait(), 2)
                 await asyncio.sleep(0)
