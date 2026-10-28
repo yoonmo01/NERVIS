@@ -40,9 +40,9 @@ export function Composer({ panel, draft, onDraft, onToggle, onClose, locked, clo
   const sendReady = canSend && !voice.active && !overflow
   const displayedPanel = panel ?? lastPanel
   const voiceStatus = voice.error || (voice.phase === 'starting' ? '마이크 권한 / 로컬 모델 준비 중 · 취소할 수 있습니다.'
-    : voice.phase === 'listening' ? `마이크 켜짐 · Turbo / 한국어 고정 / ${voice.device} · 최대 2분 · 확정 문장을 초안 뒤에 추가합니다.`
+    : voice.phase === 'listening' ? '듣는 중 · 확정 문장은 입력창에 추가됩니다.'
       : voice.phase === 'stopping' ? '마이크 꺼짐 · 마지막 문장 확정 대기 중'
-        : '마이크 꺼짐 · 로컬 Turbo / 한국어 고정 · 확정 문장을 수정한 뒤 보내기를 누르세요.')
+        : '마이크 꺼짐 · 내용을 수정한 뒤 보내세요.')
   const statusMessage = locked ? '작업 진행 중 · 완료 후 입력할 수 있습니다.' : displayedPanel === 'text' ? status : voiceStatus
   useEffect(() => {
     const previous = previousPanel.current
@@ -64,11 +64,6 @@ export function Composer({ panel, draft, onDraft, onToggle, onClose, locked, clo
   }}>
     <div className="composer-panel" id="conversation-panel" inert={!panel} aria-hidden={!panel}>
       {closable && <div className="composer-heading"><button className="composer-close" aria-label="입력창 닫기" disabled={locked} onClick={onClose}><Icon name="close" /></button></div>}
-      {displayedPanel === 'voice' && <div className="dictation-controls">
-        <button className={`dictation-toggle${voice.phase === 'listening' ? ' is-recording' : ''}`} disabled={locked || voice.phase === 'stopping' || (!voice.active && !!overflow)}
-          aria-pressed={voice.active} onClick={voice.active ? voice.stop : voice.start}><Icon name="mic" />{voice.phase === 'starting' ? '마이크 시작 취소' : voice.phase === 'listening' ? '마이크 끄기' : voice.phase === 'stopping' ? '확정 대기 중' : '마이크 켜기'}</button>
-        <span>이 컴퓨터에서 한국어 인식 · 자동 전송 없음</span>
-      </div>}
       {voice.partial && <p className="dictation-partial" role="status"><strong>인식 중 · 미확정</strong> {voice.partial}</p>}
       {overflow && <div className="dictation-overflow">
         <label htmlFor="dictation-overflow">600자 한도 초과 · 추가하지 못한 확정 문장 (수정·복사 가능)</label>
@@ -79,16 +74,18 @@ export function Composer({ panel, draft, onDraft, onToggle, onClose, locked, clo
         }}>초안 뒤에 추가</button>
       </div>}
       <div className={`composer-field${displayedPanel === 'voice' ? ' is-voice' : ''}`}>
-        {displayedPanel === 'voice' && <span className="voice-field-icon" aria-hidden="true"><Icon name="mic" /></span>}
         <textarea ref={textInput} aria-label="NERVIS에게 보낼 내용" maxLength={600} rows={1} value={draft} disabled={locked} onChange={e => editDraft(e.target.value)} aria-describedby={statusMessage ? 'composer-status' : undefined} />
-        <button className="field-mode-button" aria-label={displayedPanel === 'voice' ? '텍스트 입력 모드' : '음성 입력 모드'} aria-pressed={displayedPanel === 'voice'} disabled={locked} onClick={() => onToggle(displayedPanel === 'voice' ? 'text' : 'voice')}>{displayedPanel === 'voice' ? 'T' : <Icon name="mic" />}</button>
         <button className="send-button" disabled={!sendReady || !draft.trim()} title="명령 전송 · Enter" aria-label="명령 전송" onClick={onSend}><Icon name="send" /></button>
       </div>
       {statusMessage && <p id="composer-status" className="composer-status" role="status">{statusMessage}</p>}
     </div>
-    {!panel && <div className="composer-launchers">
-      <button ref={textLauncher} aria-label="텍스트 입력창" aria-expanded={false} aria-controls="conversation-panel" disabled={locked} onClick={() => onToggle('text')}>T</button>
-      <button ref={voiceLauncher} aria-label="음성 입력 모드" aria-expanded={false} aria-controls="conversation-panel" disabled={locked} onClick={() => onToggle('voice')}><Icon name="mic" /></button>
-    </div>}
+    <div className="composer-launchers">
+      <button ref={textLauncher} aria-label="텍스트 입력창" aria-expanded={panel === 'text'} aria-controls="conversation-panel" disabled={locked || voice.active} onClick={() => onToggle('text')}>T</button>
+      <button ref={voiceLauncher} aria-label={voice.active ? '마이크 끄기' : '마이크 켜기'} aria-pressed={voice.active} aria-expanded={panel === 'voice'} aria-controls="conversation-panel"
+        className={voice.active ? 'selected' : ''} disabled={locked || voice.phase === 'stopping' || !!overflow} onClick={() => {
+          if (voice.active) voice.stop()
+          else { if (panel !== 'voice') onToggle('voice'); voice.start() }
+        }}><Icon name="mic" /></button>
+    </div>
   </section>
 }

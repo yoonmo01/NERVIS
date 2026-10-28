@@ -23,5 +23,5 @@ export function useDictation(enabled: boolean, onFinal: (text: string) => void) 
   }, [])
   useEffect(() => { if (!enabled) session.current?.cancel() }, [enabled])
   return { ...state, active: ['starting', 'listening', 'stopping'].includes(state.phase),
-    start: () => { if (enabled) void session.current?.start(workletUrl) }, stop: () => session.current?.stop() }
+    start: () => { void session.current?.start(workletUrl) }, stop: () => session.current?.stop() }
 }

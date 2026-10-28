@@ -90,9 +90,11 @@ test('core motion rotates faster, reacts to audio, and respects reduced motion',
   assert.deepEqual(model.coreMotion(0, 0, true, 'error'), model.coreMotion(100, 1, true, 'error'))
 })
 
-test('composer stays expanded at home and toggles closed in analysis', () => {
-  assert.equal(model.toggleComposer('text', 'text', 'home'), 'text')
-  assert.equal(model.toggleComposer('voice', 'voice', 'home'), 'text')
+test('composer toggles closed at home and in analysis without losing the selected mode', () => {
+  assert.equal(model.toggleComposer('text', 'text', 'home'), null)
+  assert.equal(model.toggleComposer('voice', 'voice', 'home'), null)
+  assert.equal(model.toggleComposer(null, 'text', 'home'), 'text')
+  assert.equal(model.toggleComposer(null, 'voice', 'home'), 'voice')
   assert.equal(model.toggleComposer('text', 'text', 'analysis'), null)
   assert.equal(model.toggleComposer(null, 'text', 'analysis'), 'text')
   assert.equal(model.toggleComposer('text', 'voice', 'analysis'), 'voice')

@@ -39,7 +39,7 @@ export default function App() {
   const [skipped, setSkipped] = useState(false)
   const [view, setView] = useState<'home' | 'analysis'>('home')
   const [explored, setExplored] = useState(false)
-  const [panel, setPanel] = useState<ComposerPanel>('text')
+  const [panel, setPanel] = useState<ComposerPanel>(null)
   const [draft, setDraft] = useState('')
   const [voiceActive, setVoiceActive] = useState(false)
   const [briefingPreview, setBriefingPreview] = useState(false)
@@ -141,10 +141,10 @@ export default function App() {
       setReply(response); setDraft('')
       void speech.play(response.model_acknowledgement?.trim() || '요청 결과를 화면에서 확인해 주세요.')
       if (selection) applySelection(selection)
-      else if (response.results.some(result => isTaskTool(result.tool))) { setView('home'); setPanel('text'); setPhase('complete'); flight.current = false }
+      else if (response.results.some(result => isTaskTool(result.tool))) { setView('home'); setPanel(null); setPhase('complete'); flight.current = false }
       else if (briefing) {
         setBriefingCards({ id: ++sequence.current, value: briefing }); cardsFlight.current = true
-        setView('home'); setPanel('text'); setPhase('applying')
+        setView('home'); setPanel(null); setPhase('applying')
       }
       else { flight.current = false; setPhase('complete') }
     } catch (error) {
@@ -161,7 +161,7 @@ export default function App() {
   }
   const resetConversationView = () => {
     setReply(null); setCommand(''); setDraft(''); setPhase('idle'); setRequestError('')
-    setBriefingCards(null); setStageRequest(null); setExplored(false); setView('home'); setPanel('text')
+    setBriefingCards(null); setStageRequest(null); setExplored(false); setView('home'); setPanel(null)
   }
   const newConversation = () => {
     if (flight.current || locked || voiceActive) return
@@ -209,7 +209,7 @@ export default function App() {
   }, [retry])
 
   const explore = () => { audio.stop(); setExplored(true); setPanel(null); setView('analysis') }
-  const home = () => { audio.stop(); setPanel('text'); setView('home') }
+  const home = () => { audio.stop(); setPanel(null); setView('home') }
   const restart = () => { home(); setSkipped(false); setReplay(v => v + 1) }
   const ready = stage === 'ready'
   const locked = !ready || audio.active || speech.active || pending(phase) || (view === 'analysis' && analysisBusy)
@@ -271,9 +271,9 @@ export default function App() {
         sessions={conversation.sessions} sessionId={conversation.value?.id} hasMore={conversation.hasMore} loading={conversation.listLoading}
         listError={conversation.listError} locked={locked || voiceActive || conversation.loading} onSelect={id => { void switchConversation(id) }}
         onMore={() => { void conversation.loadSessions(true) }} onRefresh={() => { void conversation.loadSessions() }} onClose={() => setHistoryOpen(false)} />}
-      <Composer onVoiceActive={setVoiceActive} canSend={canSend} status={inputStatus} onSend={() => { void send() }} panel={panel} draft={draft} onDraft={setDraft} closable={view === 'analysis' || panel === 'voice'} locked={locked}
+      <Composer onVoiceActive={setVoiceActive} canSend={canSend} status={inputStatus} onSend={() => { void send() }} panel={panel} draft={draft} onDraft={setDraft} closable={true} locked={locked}
         onToggle={target => setPanel(current => toggleComposer(current, target, view))}
-        onClose={() => setPanel(view === 'home' ? 'text' : null)} />
+        onClose={() => setPanel(null)} />
       <footer className="shell-footer">
         <div className="shell-actions"><span>INTERFACE / 02</span>
           <button className="local-view-button" disabled={locked || (view === 'home' && connection !== 'ready')} onClick={view === 'home' ? explore : home}>

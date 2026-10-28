@@ -92,7 +92,7 @@ export function coreMotion(elapsed: number, level: number, reduced: boolean, sta
 
 export type ComposerPanel = 'text' | 'voice' | null
 export function toggleComposer(current: ComposerPanel, target: 'text' | 'voice', view: 'home' | 'analysis'): ComposerPanel {
-  return current === target ? (view === 'home' ? 'text' : null) : target
+  return current === target ? null : target
 }
 
 export function maskOverlay(pixels: Uint8ClampedArray, colors: Map<number, number[]>) {

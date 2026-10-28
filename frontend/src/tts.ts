@@ -120,7 +120,12 @@ export class SpeechPlayer {
               if (!this.sampleRate) throw new Error('빈 음성 응답입니다.')
               this.generated = true; clearTimeout(this.timer); this.finish()
             } else if (message.type === 'error') {
-              throw new Error('로컬 음성 생성에 실패했습니다. VoiceStudio의 OmniVoice·한국어 프로필·메모리 상태를 확인해 주세요.')
+              const errors: Record<string, string> = {
+                model_missing: 'VoiceStudio에 설치된 OmniVoice 모델을 확인해 주세요. 자동 다운로드하지 않습니다.',
+                model_loading: 'OmniVoice를 메모리에 로드하지 못했습니다. VoiceStudio의 모델 상태를 확인해 주세요.',
+                voice_missing: '설정한 한국어 음성 프로필을 찾지 못했습니다. 프로필 이름과 언어를 확인해 주세요.',
+              }
+              throw new Error(errors[message.code] ?? '로컬 음성 생성에 실패했습니다. VoiceStudio 실행·메모리 상태를 확인해 주세요.')
             }
           }
         } catch (error) { this.fail(error instanceof Error ? error.message : '음성 스트림을 읽지 못했습니다.') }

@@ -9,11 +9,28 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from starlette.websockets import WebSocketDisconnect
 
-from backend.tts import SpeechRequest, check_voice, relay, router, configured_voice
+from backend.tts import SpeechRequest, check_voice, relay, router, configured_voice, prepare_voice
 from unittest.mock import patch
 
 
 class TTSTests(unittest.TestCase):
+    def test_disconnect_cancels_waiting_for_model_load(self):
+        async def run():
+            started, cancelled = asyncio.Event(), asyncio.Event()
+            async def pending(*_args):
+                started.set()
+                try: await asyncio.Event().wait()
+                finally: cancelled.set()
+            class Browser:
+                async def receive(self):
+                    await started.wait()
+                    return {'type': 'websocket.disconnect'}
+            with patch('backend.tts.check_voice', side_effect=pending):
+                with self.assertRaises(WebSocketDisconnect):
+                    await prepare_voice(Browser(), None, 'JARVIS')
+            self.assertTrue(cancelled.is_set())
+        asyncio.run(run())
+
     def test_voice_configuration_uses_server_env_with_default_and_no_browser_override(self):
         with patch('backend.tts.dotenv_values', return_value={}), patch('backend.tts.os.environ', {}):
             self.assertEqual(configured_voice(), 'JARVIS')
@@ -53,6 +70,8 @@ class TTSTests(unittest.TestCase):
             for model in ({'loaded': False, 'checkpoint': 'k2-fsa/OmniVoice'},
                           {'loaded': True, 'checkpoint': 'unapproved-engine'}):
                 def invalid_model(request):
+                    if request.url.path == '/models': return httpx.Response(200, json={'models': []})
+                    if request.url.path == '/engines/tts': return httpx.Response(200, json={'active': 'omnivoice'})
                     value = model if request.url.path == '/model/status' else (
                         {'status': 'ok', 'version': '0.5.7'} if request.url.path == '/health'
                         else [{'id': 'f0c26d84', 'name': 'JARVIS', 'language': 'Korean'}])
@@ -60,6 +79,28 @@ class TTSTests(unittest.TestCase):
                 async with httpx.AsyncClient(base_url='http://127.0.0.1:3900', transport=httpx.MockTransport(invalid_model)) as client:
                     with self.assertRaises(ValueError):
                         await check_voice(client, 'JARVIS')
+        asyncio.run(run())
+
+    def test_idle_installed_model_is_warmed_without_generating_audio(self):
+        async def run():
+            loaded = False
+            calls = []
+            def handler(request):
+                nonlocal loaded
+                calls.append((request.method, request.url.path))
+                if request.url.path == '/setup/warmup':
+                    self.assertEqual(request.method, 'POST')
+                    loaded = True
+                    return httpx.Response(200, json={'status': 'warmup_started'})
+                values = {'/health': {'status': 'ok', 'version': '0.5.7'},
+                          '/model/status': {'loaded': loaded, 'checkpoint': 'k2-fsa/OmniVoice' if loaded else None},
+                          '/profiles': [{'id': 'f0c26d84', 'name': 'JARVIS', 'language': 'Korean'}],
+                          '/models': {'models': [{'repo_id': 'k2-fsa/OmniVoice', 'installed': True}]},
+                          '/engines/tts': {'active': 'omnivoice'}}
+                return httpx.Response(200, json=values[request.url.path])
+            async with httpx.AsyncClient(base_url='http://127.0.0.1:3900', transport=httpx.MockTransport(handler)) as client:
+                self.assertEqual(await check_voice(client, 'JARVIS'), 'f0c26d84')
+            self.assertEqual([c for c in calls if c[0] != 'GET'], [('POST', '/setup/warmup')])
         asyncio.run(run())
 
     def test_relay_forwards_pcm_before_done_and_waits_for_playback_ack(self):
