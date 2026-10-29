@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB: nervis
       POSTGRES_USER: nervis
-      POSTGRES_PASSWORD: ${NERVIS_DB_PASSWORD:?Set NERVIS_DB_PASSWORD in .env.database}
+      POSTGRES_PASSWORD: ${NERVIS_DB_PASSWORD:?Set NERVIS_DB_PASSWORD in .env}
       TZ: Asia/Seoul
       PGTZ: Asia/Seoul
     ports:

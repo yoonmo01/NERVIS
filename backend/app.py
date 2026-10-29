@@ -8,11 +8,11 @@ from pathlib import Path
 from typing import Annotated, Literal
 from threading import Lock
 from uuid import UUID
-from backend.conversations import ConversationStore
-from backend.task_tools import TaskManager, TaskToolRequest
-from backend.course_tools import CourseManager, CourseRequest, course_preview_requested, course_preview
-from backend.planner import DatabaseSettings
-from backend.schemas import RequestModel
+from backend.conversations.store import ConversationStore
+from backend.planner.task_tools import TaskManager, TaskToolRequest
+from backend.planner.course_tools import CourseManager, CourseRequest, course_preview_requested, course_preview
+from backend.planner.store import DatabaseSettings
+from backend.analysis.schemas import RequestModel
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Path as ApiPath, Query, Request
 from fastapi.exceptions import RequestValidationError
@@ -21,16 +21,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from backend import analysis
-from backend.ai import AIError, AnalysisAI, ChatRequest, Gateway, Settings
-from backend.data import Dataset, load_dataset
-from backend.planner import PlannerError
-from backend.planner_api import router as planner_router
-from backend.stt import router as stt_router
-from backend.tts import router as tts_router
-from backend.tts import warm_voice, maintain_voice
-from backend.planner_api import briefing_result, get_weather
-from backend.schemas import CompareRequest, DetailedRequest, PairsRequest, TimeseriesRequest, WindowsRequest, RegionAnalysisRequest
+from backend.analysis import analysis
+from backend.ai.client import AIError, AnalysisAI, ChatRequest, Gateway, Settings
+from backend.analysis.data import Dataset, load_dataset
+from backend.planner.store import PlannerError
+from backend.planner.api import router as planner_router
+from backend.speech.stt import router as stt_router
+from backend.speech.tts import router as tts_router
+from backend.speech.tts import warm_voice, maintain_voice
+from backend.planner.api import briefing_result, get_weather
+from backend.analysis.schemas import CompareRequest, DetailedRequest, PairsRequest, TimeseriesRequest, WindowsRequest, RegionAnalysisRequest
 from scripts.prepare_app_data import fingerprint
 
 
@@ -145,7 +145,7 @@ def create_app(package_dir: Path = DEFAULT_PACKAGE, *, ai_service: AnalysisAI | 
 
     @application.post('/api/conversations', tags=['conversation'])
     def create_conversation(body: RequestModel, request: Request):
-        from backend.planner_api import check_origin
+        from backend.planner.api import check_origin
         check_origin(request)
         return conversations(request).create()
 

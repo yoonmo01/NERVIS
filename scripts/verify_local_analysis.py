@@ -11,8 +11,8 @@ from scipy.stats import spearmanr
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from backend import analysis
-from backend.data import load_dataset
+from backend.analysis import analysis
+from backend.analysis.data import load_dataset
 from scripts.prepare_app_data import fingerprint, require, source_snapshot, verify_package
 
 

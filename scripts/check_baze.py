@@ -8,8 +8,8 @@ import json
 
 import numpy as np
 
-from backend.ai import AIError, AnalysisAI, Gateway, Settings
-from backend.data import Dataset
+from backend.ai.client import AIError, AnalysisAI, Gateway, Settings
+from backend.analysis.data import Dataset
 
 
 def synthetic_dataset():
