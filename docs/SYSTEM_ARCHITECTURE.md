@@ -223,7 +223,7 @@ C:\NERVIS\
   AGENTS.md                         기존, 원본·공개 규칙
   README.md                         기존, 진입 안내
   docs/                             현재 데이터·기획·연결 문서
-    past/                           구 기획 보관
+    (구 기획은 tmp/repo_cleanup_20261029_205611/에 로컬 백업)
   scripts/
     analyze_data.py                 기존 탐색 분석
     prepare_app_data.py             구현, 오프라인 앱 패키지 생성·검증

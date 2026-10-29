@@ -21,6 +21,10 @@
 
 ## 현재 작업 기준
 
+- 2026-10-29 사용자 명시 요청으로 tests/·frontend/tests/와 미사용 frontend/src/audio.ts, 옛 문서 ANALYSIS_EXPLANATIONS_PLAN.md·CONVERSATION_ANALYSIS_DESIGN.md를 tmp/repo_cleanup_20261029_211009/에 SHA256 검증 백업 후 제거했다. frontend/package.json의 test 명령과 tsconfig.json의 tests 포함 경로를 제거하고 README의 현재 실행 안내를 정리했다. scripts/·현행 presentation.ts·TTS 어댑터는 유지한다. 아래 과거 테스트 실행 안내는 당시 기록이며 현재 체크아웃에서 재실행할 수 없다. 원본/환경/DB 변경·외부 요청·커밋 없음.
+
+- 2026-10-29 사용자 승인 정리/접수 음성 복구: 이전 GLB3개/전용 JSON2개와 docs/past·docs/superpowers/plans의 문서18개를 tmp/repo_cleanup_20261029_205611/에 해시 검증 백업 후 제거했다(백업manifest에 삭제23개/수정전3개 기록). 현행 narrow-gap GLB/JSON2개/셰이더2개는 해시 동일 확인. 옛 cortical 파일만 검사하던 테스트1개를 제거하고 나머지 테스트/현행 모델 검사는 유지한다. 출처/라이선스 기록과 TTS어댑터는 보존한다. '고정 음성 출력'은 문구만 제거하라는 사용자 정정에 따라 Right_Away_Sir_V2.mp3 접수당1회/결과TTS와 겹침 방지를 복구했다. 실제 환경/음성/원본/DB 변경·유료 요청·실행 테스트/빌드·커밋은 하지 않았다. 과거 데이터 검토 문서도 원래 로컬 보관 취지대로 해당 백업 안에만 보존하며 외부 공개하지 않는다.
+
 - 2026-10-29 분석 헤더/코어 조정: 3D BRAIN·조작 안내/시점 버튼11px, SAMPLE10px/숫자21px로 확대했다. 좌측 코어 약10% 확대/10px 아래, 왼쪽 패널 시작점을 추가로 내리되 끝점/이미지 크기/미리보기 버튼은 유지했다. Chrome100% 1920x911과1054x998에서 긴 운동·운동전피질 이름으로 MRI clientHeight=scrollHeight(404/465), 가로 넘침 없음 및 헤더 너비 내 표시를 확인했다. 기록 reports/frontend-mri-20261029/chrome-core-labels-final.jpg. 전체 테스트·빌드·유료 요청·환경/원본 변경·커밋 없음.
 
 - 2026-10-29 MRI 한 화면 표시 보완: 사용자 지적에 따라 스크롤 대안 대신 하단 미리보기 버튼을 제거하고 데스크톱 T/마이크 bottom26px, 분석 하단80px/입력 펼침155px, 코어·패널 간격을 조정했다. 기존 MRI 크기/12px 영역명을 유지하고 예약 스크롤바 너비를 제거했다. 실제 Chrome100% 1920x911 및1054x998에서 입력 접힘/MRI탭 scrollHeight=clientHeight, 긴 좌우 영역명 전체 표시를 확인했다. 작은 뷰포트 보호용 overflow는 유지. reports/frontend-mri-20261029/chrome-no-scroll-1054.jpg 기록. 원본/환경/DB·유료 요청·전체 테스트/빌드·커밋 없음.

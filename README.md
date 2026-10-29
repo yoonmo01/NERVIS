@@ -18,16 +18,16 @@
 |---|---|---|
 | `AGENTS.md`, `.gitignore`, `README.md` | 포함 | 작업 규칙·저장소 안내 |
 | `scripts/analyze_data.py` | 포함 | 실제 데이터는 내장하지 않은 재현 가능한 분석 코드. 로컬 데이터 별도 필요 |
-| `scripts/prepare_app_data.py`, `tests/test_prepare_app_data.py`, `.env.example` | 포함 | 오프라인 가공·검증 코드, 합성 자료 테스트, 실제 키가 없는 설정 예시 |
+| `scripts/prepare_app_data.py`, `.env.example` | 포함 | 오프라인 가공·검증 코드, 실제 키가 없는 설정 예시 |
 | `backend/`, `scripts/verify_local_analysis.py`, 로컬 분석·검증 테스트 | 포함 | 실제 데이터·키를 내장하지 않은 계산 코드와 합성 자료 검사 |
-| `requirements.txt`, `tests/test_api.py` | 포함 | 현재 로컬 API·테스트 의존성 버전과 합성 HTTP 검사 |
+| `requirements.txt` | 포함 | 로컬 서버 의존성 버전 |
 | `frontend/` 소스·설정·package-lock·합성 테스트 | 포함 | 실제 데이터·키 없이 UI와 의존성을 재현. node_modules·dist는 제외 |
-| 현재 기획·구조·시나리오·API 가이드, `docs/past/NERVIS_PROJECT_PLAN.md` | 포함 | 개발 계획·공식 API 사용법. `past`는 구 기획임을 유지 |
+| 현재 기획·구조·시나리오·API 가이드 | 포함 | 현행 개발 기준·공식 API 사용법 |
 | `docs/DATA_ANALYSIS_PLAN.md` | 제외 | 사용자가 데이터 관련 Markdown 전체를 커밋 대상에서 제외하도록 지정 |
 | `docs/DATA_PACKAGE_IMPLEMENTATION.md`, `docs/DATA_PREPARATION.md` | 제외 | 데이터 가공 구현 계획·방법·검증 기록도 같은 제외 규칙 적용 |
 | `docs/DATA_OVERVIEW.md` | 조건 확인 전 제외 | 전체 RGB 표 등 제공 자료 일부를 재현할 수 있는 내용 포함 |
 | `docs/DATA_ANALYSIS_RESULTS.md` | 조건 확인 전 제외 | 영역별·구간별 상세 파생 수치 포함 |
-| `docs/past/NERVIS_DATA_FEASIBILITY.md` | 조건 확인 전 제외 | 20영역의 두께·부피 값 등 제공 수치를 표로 포함. 구 문서도 공개 규칙 적용 |
+| 과거 데이터 검토 문서의 로컬 백업 | 조건 확인 전 제외 | 20영역의 두께·부피 값 등 제공 수치를 표로 포함. 구 문서도 공개 규칙 적용 |
 | 원본 데이터 폴더 전체 | 제외 | 제공받은 자료이며 구체적 재배포 조건 미확인 |
 | `tmp/` 전체 | 제외 | 초기 감사 스크립트, 원본 이미지 미리보기, 임시 JSON, 로컬 경로가 담긴 이동 기록 |
 | `reports/` 전체 | 기본 제외 | 상세 수치·마스크 좌표·파형 특징·PCA scores/loadings·그림과 실행 환경 포함. 재배포 조건 미확인 |
@@ -53,7 +53,7 @@
 | 제출 방식 | 사용자가 공유한 교수님 후속 이메일에서 실제 시스템 녹화·편집 MP4 방식 승인 |
 | 프로젝트 방향·시스템 구조·시나리오·기술 | 현재 선택한 음성 탐색 시스템 기준으로 문서화 |
 | BAZE/HAI GPT·Google 영상 사용법 | 공식 설정 안내·API 명세·한림대 가이드와 Google 문서 확인 |
-| 구 기획 2개 | `docs/past/`에 보관 |
+| 구 기획·완료 구현 계획 | 2026-10-29 로컬 `tmp/repo_cleanup_20261029_205611/`에 백업 후 작업 경로에서 제거 |
 | 앱용 통합 데이터 패키지·마스크 ID 변환 파일 | 생성·검증 완료. 20 ROI·200점·33 마스크·33 T1, 총 71파일 |
 | 로컬 분석 함수 | 구현·실제 자료 대조 완료. 영역·신호 조회, 두 영역 비교, 조건별 검색, 이동 창, 단면 조회 |
 | FastAPI 데이터·분석 서버 | 구현·로컬 HTTP 검증 완료. 시작 시 로딩, 분석 호출, 등록 단면 조회 |
@@ -74,7 +74,7 @@
 & 'C:\Users\coola\AppData\Local\Programs\Python\Python311\python.exe' -X utf8 'C:\NERVIS\scripts\prepare_app_data.py' --verify-only
 ```
 
-합성 자료 테스트는 `python -m unittest discover -s tests -v`로 실행한다. Python 3.11과 기존 NumPy·SciPy·Pillow를 사용하며 외부 통신·키·SDK가 필요 없다. Windows 링크 검사는 symlink 또는 junction 생성이 허용된 환경이 필요하다. 상세 가공 방법은 [로컬 데이터 처리 문서](docs/DATA_PREPARATION.md)에 기록했다.
+자동 테스트 소스는 사용자 요청으로 로컬 백업 후 제거했다. Python 3.11과 기존 NumPy·SciPy·Pillow를 사용하며 외부 통신·키·SDK가 필요 없다. Windows 링크 검사는 symlink 또는 junction 생성이 허용된 환경이 필요하다. 상세 가공 방법은 [로컬 데이터 처리 문서](docs/DATA_PREPARATION.md)에 기록했다.
 
 ## 로컬 분석 함수 사용
 
@@ -131,7 +131,7 @@ Set-Location C:\NERVIS
 
 JSON의 정수 필드에 bool·문자열·실수를 넣거나, 추가 필드·잘못된 구간·중복 영역을 보내면 HTTP422로 거절한다. 상수 구간은 HTTP200에 `status: unavailable`, `correlation: null`을 반환한다. 없는 단면은404, 서버 시작 뒤 이미지 변경·경로 이탈은409다. 서버는 원본 폴더·manifest·임의 파일을 제공하지 않는다.
 
-`requirements.txt`는 로컬 서버·합성 테스트용으로 검증한 버전이다. 이번에는 이미 설치된 환경을 사용했고 패키지를 추가 설치하지 않았다. 기존 탐색 분석 스크립트의 pandas·Matplotlib와 향후 영상 도구는 이 서버용 목록에 포함하지 않았다. API 검사만 실행하려면 `python -X utf8 -m unittest discover -s tests -p test_api.py -v`, 전체 회귀 검사는 `python -X utf8 -m unittest discover -s tests -v`다. Windows 샌드박스에서 asyncio의 내부 localhost 통신이 막히면 로컬 통신과 junction 생성이 허용된 환경에서 실행한다.
+`requirements.txt`는 로컬 서버·합성 테스트용으로 검증한 버전이다. 이번에는 이미 설치된 환경을 사용했고 패키지를 추가 설치하지 않았다. 기존 탐색 분석 스크립트의 pandas·Matplotlib와 향후 영상 도구는 이 서버용 목록에 포함하지 않았다. 과거 합성 검사 결과는 당시 실행 기록이며 현재 테스트 소스는 포함하지 않는다. Windows 샌드박스에서 asyncio의 내부 localhost 통신이 막히면 로컬 통신과 junction 생성이 허용된 환경에서 실행한다.
 
 실제 서버의 HTTP·PNG·입력 오류·CORS/Host 확인 기록은 `reports/backend/http_validation.json`이다. 세션·명령 해석·AI 도구 호출·이벤트·음성·DB는 아직 없다.
 
@@ -170,15 +170,14 @@ npm.cmd run dev
 | `src/AnalysisView.tsx` · React + SVG | 실제 두 파형·창별 상관·선택 구간·재생·상세 창 |
 | `src/BrainStage.tsx` · Three.js/R3F + Canvas2D | 실제 단면 점군·표시용 깊이/관계선·ROI 확대·MRI 병치 |
 | `src/stageData.ts`, `src/analysisModel.ts` | 로컬 검색/비교/창 조회·단면 선택·픽셀 기하·샘플 범위 |
-| `src/audio.ts` · Web Audio | 로컬 합성음 생성·음량 측정·중지와 자원 해제 |
 | `src/api.ts` · fetch | `/api`의 로컬 서버 요청과 취소·HTTP 오류 처리 |
-| `src/model.ts`, `tests/model.test.ts` · Node 내장 테스트 | 타이밍·기하·마스크·파형·음량의 합성 입력 검사 |
+| `src/model.ts` | 타이밍·기하·마스크·파형·음량 계산 |
 
 Vite는 loopback 주소에 바인딩하고 `/api`만 FastAPI로 프록시한다. 루트 `.env`를 읽지 않으며 API 키를 브라우저로 넘기지 않는다. Vite 파일 접근 허용 범위는 `frontend/`뿐이다. 원본·패키지를 정적 공개 폴더에 복사하지 않았다. `dist/`만 별도로 열면 데이터 API가 연결되는 배포 방식까지 구현한 것은 아니다.
 
 추가된 공통 화면은 `src/Interface.tsx`·`src/interface.css`다. 홈에서는 입력창을 펼치고 분석에서는 T·마이크 아이콘으로 접는다. 작성한 초안은 화면/모드 전환에 유지되지만 파일에 저장하거나 전송하지 않는다. AI 전송 버튼은 비활성이고 마이크 버튼은 같은 편집 가능한 입력칸을 음성 모드로 전환하며 STT 연결 전·마이크 꺼짐을 표시한다. 날씨·수업·할 일 카드는 초기 화면에 표시하지 않는다. 실제 요청→중앙 브리핑→오른쪽 위 카드 이동은 후속 구현이다. 입력칸은 예시 문구 없이 시작하며 큰 외곽 박스 대신 입력칸과 버튼만 둥근 테두리를 쓴다. 합성음 재생 중에는 새 입력과 분석 조작을 막고 종료 시 복구한다. 전체 AI 요청의 순차 처리·실제 브리핑은 후속 단계다.
 
-프런트 검사는 `npm.cmd test`, 타입 검사와 프로덕션 빌드는 `npm.cmd run build`다. 로컬 UI 확인은 1280×720 가로 구도와 좁은 앱 패널에서 수행했다. 시작/건너뛰기·영역/방향 변경·홈 왕복·키보드 선택·로컬 음향·서버 실패/재시도를 확인했다. 원본·패키지·환경 파일 보존과 Vite 접근 차단 기록, 실제 스크린샷은 Git 제외 대상인 `reports/frontend/`에 둔다. 첫 버전의 독립 검토는 도구 할당량 제한으로 미완료였으나, 이번 코어·공통 화면 변경은 독립 정적 검토를 수행하고 발견한 초점 이동 문제를 브라우저 재현 후 수정했다. 추가 검사9개와 브라우저 기록은 `reports/frontend-v2/`에 있다. 이 버전은1280×720와 실제 앱 창에서 확인했고 모바일 등 다른 크기는 추가 확인이 필요하다. 1080p 녹화 성능·다른 브라우저/모바일·OS 움직임 축소 설정의 실제 적용은 아직 검증하지 않았다. Three.js를 포함한 큰 번들 경고와 R3F 내부 THREE.Clock 사용 중단 예정 경고는 남아 있다.
+타입 검사와 프로덕션 빌드는 `npm.cmd run build`다. 자동 테스트 폴더와 npm test 명령은 사용자 요청으로 제거했다. 로컬 UI 확인은 1280×720 가로 구도와 좁은 앱 패널에서 수행했다. 시작/건너뛰기·영역/방향 변경·홈 왕복·키보드 선택·로컬 음향·서버 실패/재시도를 확인했다. 원본·패키지·환경 파일 보존과 Vite 접근 차단 기록, 실제 스크린샷은 Git 제외 대상인 `reports/frontend/`에 둔다. 첫 버전의 독립 검토는 도구 할당량 제한으로 미완료였으나, 이번 코어·공통 화면 변경은 독립 정적 검토를 수행하고 발견한 초점 이동 문제를 브라우저 재현 후 수정했다. 추가 검사9개와 브라우저 기록은 `reports/frontend-v2/`에 있다. 이 버전은1280×720와 실제 앱 창에서 확인했고 모바일 등 다른 크기는 추가 확인이 필요하다. 1080p 녹화 성능·다른 브라우저/모바일·OS 움직임 축소 설정의 실제 적용은 아직 검증하지 않았다. Three.js를 포함한 큰 번들 경고와 R3F 내부 THREE.Clock 사용 중단 예정 경고는 남아 있다.
 
 높이 대응과0.32초 입력창 전환·직접 변경 메뉴·`1~200` 표기, 실제 크롬 검증은 `reports/frontend-responsive/`에 기록한다. 마이크를 세션 단위로 켜고 요청 처리·응답 종료 후 다시 듣는 동작은 향후 음성 단계의 설계이며 아직 연결하지 않았다.
 

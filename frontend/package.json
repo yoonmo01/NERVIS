@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "test": "node --experimental-strip-types --test tests/*.test.ts"
+    "build": "tsc --noEmit && vite build"
   },
   "dependencies": {
     "@react-three/fiber": "9.8.2",

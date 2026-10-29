@@ -79,11 +79,11 @@ class LocalSTT:
                                           local_files_only=True)
                 self.device, self.compute_type = device, compute
 
-    def transcribe(self, pcm):
+    def transcribe(self, pcm, language='ko'):
         self.load()
         with self.lock:
             audio = np.frombuffer(pcm, dtype='<i2').astype(np.float32) / 32768
-            segments, _ = self.model.transcribe(audio, language='ko', task='transcribe', beam_size=1,
+            segments, _ = self.model.transcribe(audio, language=language, task='transcribe', beam_size=1,
                 temperature=0, condition_on_previous_text=False, vad_filter=True,
                 vad_parameters={'min_silence_duration_ms': 500})
             return ' '.join(segment.text.strip() for segment in segments).strip()
@@ -135,6 +135,10 @@ async def stream(ws: WebSocket, service: LocalSTT = Depends(get_stt)):
     if ws.headers.get('origin') not in LOCAL_ORIGINS or ws.client is None or ws.client.host not in ('127.0.0.1', '::1'):
         await ws.close(code=1008)
         return
+    language = ws.query_params.get('language', 'ko')
+    if language not in ('ko', 'en'):
+        await ws.close(code=1008)
+        return
     await ws.accept()
     from backend.tts import wait_for_standby
     try:
@@ -180,7 +184,7 @@ async def stream(ws: WebSocket, service: LocalSTT = Depends(get_stt)):
                         if ended: window.take()
                         continue
                     pcm = window.take() if final else bytes(window.audio)
-                    text = await asyncio.to_thread(service.transcribe, pcm)
+                    text = await asyncio.to_thread(service.transcribe, pcm, language)
                     last_decode = monotonic()
                     if final:
                         if text:
@@ -194,7 +198,7 @@ async def stream(ws: WebSocket, service: LocalSTT = Depends(get_stt)):
                         await ws.send_json({'type': 'partial', 'text': text})
                     if ended: changed.set()
                 await ws.send_json({'type': 'final', 'final_kind': 'summary', 'text': ' '.join(committed),
-                                    'segments': [{'text': text} for text in committed], 'language': 'ko'})
+                                    'segments': [{'text': text} for text in committed], 'language': language})
 
             tasks = [asyncio.create_task(receive()), asyncio.create_task(recognize())]
             await asyncio.gather(*tasks)

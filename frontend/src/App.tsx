@@ -17,7 +17,6 @@ import ConversationPanel, { CalculationResults } from './ConversationPanel.tsx'
 import { checkedReply, viewSelection, pending, aiErrorMessage, interfaceState } from './conversation.ts'
 import type { AIStatus, AIReply, CommandPhase, ViewContext, ViewRequest } from './conversation.ts'
 import type { StageSelection } from './stageData.ts'
-import { previewSegments } from './presentation.ts'
 import { streamChat, workMessage } from './chatStream.ts'
 import type { RequestOwner } from './chatStream.ts'
 import { useActivation } from './useActivation.ts'
@@ -47,7 +46,6 @@ export default function App() {
   const [awaitingPlayback, setAwaitingPlayback] = useState<{ owner: RequestOwner; view: 'home' | 'analysis' | null; shown: boolean; started?: boolean } | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [stage, setStage] = useState<IntroStage>(() => introStage(0, reduced))
-  const [skipped, setSkipped] = useState(false)
   const [view, setView] = useState<'home' | 'analysis'>('home')
   const [explored, setExplored] = useState(false)
   const [panel, setPanel] = useState<ComposerPanel>(null)
@@ -145,40 +143,41 @@ export default function App() {
     stageOwner.current = ownerRef.current
     setStageRequest({ id, selection }); setExplored(true); setView('analysis'); setPanel(null); setPhase('applying')
   }
-  const send = async (preview = false) => {
-    if (flight.current || locked || voiceActive || (!preview && ((!aiStatus?.enabled || aiStatus.busy) || !draft.trim())) || !data) return
+  const send = async () => {
+    if (flight.current || locked || voiceActive || !aiStatus?.enabled || aiStatus.busy || !draft.trim() || !data) return
     flight.current = true; expectedStage.current = null
     let requestOwner: RequestOwner = { request_id: crypto.randomUUID(), session_id: conversation.value?.id ?? crypto.randomUUID() }
     ownerRef.current = requestOwner; setOwner(requestOwner); speech.claim(requestOwner)
     speech.prepare()
-    const submitted = preview ? '오늘 할 일 알려줘 · 더미 미리보기' : draft.trim(), current = new AbortController()
+    const submitted = draft.trim(), current = new AbortController()
     controller.current = current
     const ownsRequest = () => mounted.current && ownerRef.current?.request_id === requestOwner.request_id
+    let receipt = Promise.resolve(), acknowledged = false
+    const acknowledge = () => {
+      if (acknowledged || !ownsRequest() || current.signal.aborted) return
+      acknowledged = true; receipt = activation.acknowledge()
+    }
     setWorkStatus('요청을 연결하고 있습니다.')
     setCommand(submitted); setReply(null); setRequestError(''); setPhase('requesting'); setResultOpen(true); setAnalysisTab('response')
     setBriefingCards(null); cardsFlight.current = false
     const timeout = setTimeout(() => current.abort(), 180000)
     try {
-      let packet: AIReply
-      if (preview) {
-        const value = await api<Briefing>('/api/briefing/preview', current.signal)
-        packet = { status: 'ok', warning: null,
-          model_acknowledgement: previewSegments(value, false).map(segment => segment.text).join(' '),
-          results: [{ result_id: `preview-${++sequence.current}`, tool: 'get_daily_briefing', parameters: {}, data: value as unknown as Record<string, unknown> }] }
-      } else {
-        const sessionId = await conversation.ensure()
-        if (!ownsRequest() || current.signal.aborted) return
-        requestOwner = { ...requestOwner, session_id: sessionId }
-        ownerRef.current = requestOwner; setOwner(requestOwner); speech.claim(requestOwner)
-        packet = await streamChat({ command: submitted, context: context.current, ...requestOwner }, current.signal, event => {
-          if (ownsRequest() && !current.signal.aborted && event.session_id === requestOwner.session_id) setWorkStatus(workMessage(event))
-        })
-      }
+      const sessionId = await conversation.ensure()
+      if (!ownsRequest() || current.signal.aborted) return
+      requestOwner = { ...requestOwner, session_id: sessionId }
+      ownerRef.current = requestOwner; setOwner(requestOwner); speech.claim(requestOwner)
+      const packet = await streamChat({ command: submitted, context: context.current, ...requestOwner }, current.signal, event => {
+        if (ownsRequest() && !current.signal.aborted && event.session_id === requestOwner.session_id) {
+          if (event.type === 'request.started') acknowledge()
+          setWorkStatus(workMessage(event))
+        }
+      })
+      await receipt
       const response = checkedReply(packet, data.summary.dataset_version)
       if (!ownsRequest() || current.signal.aborted) return
       const selection = viewSelection(response)
       const briefing = briefingFromResults(response.results)
-      setReply(response); if (!preview) setDraft('')
+      setReply(response); setDraft('')
       setWorkStatus('결과를 받았습니다. 화면과 음성을 준비하고 있습니다.')
       setPanel(null); setPhase('applying')
       setAwaitingPlayback({ owner: requestOwner, view: selection ? 'analysis' : briefing || response.results.some(result => isTaskTool(result.tool)) ? 'home' : null, shown: false })
@@ -192,6 +191,7 @@ export default function App() {
         setBriefingCards({ id: ++sequence.current, value: briefing, owner: requestOwner }); cardsFlight.current = true
       }
     } catch (error) {
+      await receipt
       if (!ownsRequest()) return
       const message = error instanceof ApiError ? aiErrorMessage(error.code) : error instanceof DOMException && error.name === 'AbortError'
         ? '응답을 3분 안에 받지 못했습니다. 서버 처리가 계속될 수 있어 자동 재전송하지 않습니다.'
@@ -201,7 +201,7 @@ export default function App() {
     } finally {
       clearTimeout(timeout)
       if (controller.current === current) controller.current = null
-      if (ownsRequest()) { void refreshAI(); if (!preview) { void conversation.reload(); if (historyOpen) void conversation.loadSessions() } }
+      if (ownsRequest()) { void refreshAI(); void conversation.reload(); if (historyOpen) void conversation.loadSessions() }
     }
   }
   const resetConversationView = () => {
@@ -259,11 +259,11 @@ export default function App() {
 
   useEffect(() => {
     if (!introStarted) { setStage('title'); return }
-    setStage(introStage(0, reduced || skipped))
-    if (reduced || skipped) return
+    setStage(introStage(0, reduced))
+    if (reduced) return
     const timers = Object.values(INTRO).map(time => setTimeout(() => setStage(introStage(time)), time))
     return () => timers.forEach(clearTimeout)
-  }, [reduced, skipped, introStarted])
+  }, [reduced, introStarted])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -290,7 +290,7 @@ export default function App() {
   const ready = introStarted && stage === 'ready'
   const baseLocked = !ready || speech.active || pending(phase) || (view === 'analysis' && analysisBusy)
   const activation = useActivation(introStarted, !baseLocked && !voiceActive && panel === null && !historyOpen,
-    () => { setSkipped(false); setIntroStarted(true) },
+    () => { setIntroStarted(true) },
     () => { setPanel('voice'); setVoiceTrigger(value => value + 1) })
   const locked = baseLocked || activation.greeting
   useEffect(() => {
@@ -328,7 +328,7 @@ export default function App() {
         {activation.greeting && <button onClick={() => activation.stop()}>안내음 중지</button>}
         <button aria-pressed={activation.armed} disabled={baseLocked || voiceActive || activation.greeting} onClick={() => activation.armed ? activation.stop() : void activation.arm()}>{activation.armed ? '음성 호출 끄기' : '음성 호출 켜기'}</button>
       </div>}
-      {speech.active && <button className="speech-stop" onClick={stopResponse} aria-label="응답 음성 중지" title="응답 음성 중지">■</button>}
+      {speech.active && <button className={`speech-stop state-${coreState}`} onClick={stopResponse} aria-label="응답 음성 중지" title="응답 음성 중지">■</button>}
       {ready && view === 'analysis' && <button disabled={locked || voiceActive} onClick={() => { setPanel(null); setView('home') }}>대화 홈</button>}
       {ready && <div className="conversation-controls">
         <button disabled={locked || conversation.loading} onClick={() => { if (!historyOpen) void conversation.loadSessions(); setHistoryOpen(open => !open) }}>대화 기록{conversation.value ? ` · ${conversation.value.messages.length}` : ''}</button>
@@ -340,13 +340,12 @@ export default function App() {
       </div>
     </header>
 
-    {(stage === 'title' || stage === 'dock') && <div className="intro-caption"><span>AN INTERFACE TO EXPLORE</span><p>기록 속의 관계를 발견하다</p></div>}
+    {(stage === 'title' || stage === 'dock') && <div className="intro-caption"><span>AN INTERFACE TO EXPLORE</span><p></p></div>}
     {!introStarted && <div className="activation-wait" role="region" aria-label="NERVIS 시작 대기">
-      <p>{activation.armed ? '박수 두 번으로 시작하세요' : 'NERVIS 시작 대기'}</p>
+      <p>{activation.armed ? '박수 두 번으로 시작하세요' : ''}</p>
       <small>{activation.armed ? '짝, 짝 · 박수 두 번을 기다리고 있습니다.' : '마이크 연결 후 박수 두 번으로 시작합니다.'}</small>
       <button onClick={() => activation.armed ? activation.stop() : void activation.arm()}>{activation.armed ? '연결 해제' : 'NERVIS 깨우기'}</button>
     </div>}
-    {!ready && <button className="skip-intro" onClick={() => { activation.stop(); setIntroStarted(true); setSkipped(true) }}>인트로 건너뛰기 <span>↗</span></button>}
 
     <div className={`core-stage state-${coreState}`} aria-hidden="true">
       <div className="core-aura" />
@@ -370,13 +369,6 @@ export default function App() {
     </main>
 
     <div className={`common-interface${ready ? ' is-ready' : ''}`} inert={!ready}>
-      {ready && <div className="development-previews" aria-label="작업용 미리보기">
-        <button disabled={locked || voiceActive || connection !== 'ready'} onClick={() => {
-          activation.stop(); setPanel(null); setExplored(true); setView('analysis')
-        }}>분석 미리보기</button>
-        <button disabled={locked || voiceActive || connection !== 'ready'} title="합성 데이터 · AI 텍스트/DB 저장 없음 · TTS는 실제 유료 요청" onClick={() => { void send(true) }}>더미 데이터 다시 보기</button>
-        <small>작업용 · 더미 음성은 실제 TTS 사용</small>
-      </div>}
       {ready && view === 'home' && briefingCards && !awaitingPlayback && <BriefingCards key={briefingCards.id} value={briefingCards.value} reduced={reduced} onReady={() => onCardsReady(briefingCards.owner.request_id)}
         prefix={briefingPrefix}
         playback={{ active: speechOwned && briefingCards.owner.request_id === owner?.request_id && speech.active && speech.synchronized === true, target: speechTarget }} />}

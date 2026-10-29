@@ -699,7 +699,7 @@
 .activation-notice { position:absolute; z-index:16; left:50%; bottom:110px; transform:translateX(-50%); width:min(90%,650px); padding:10px; background:#071722ed; border:1px solid #6cbad34d; color:#b8d7e5; font-size:12px; text-align:center; }
 @media(max-width:650px) { .activation-status { top:120px; right:20px; max-width:calc(100% - 40px); } }
 .app--title .activation-notice { bottom:260px; }
-.speech-stop { padding:7px 10px; border:1px solid #a586c866; color:#c5a3ff; background:#0a1520; cursor:pointer; }
+.speech-stop { padding:7px 10px; border:1px solid color-mix(in srgb,var(--state-color) 40%,transparent); color:var(--state-color); background:#0a1520; cursor:pointer; }
 .development-previews { position:absolute; bottom:20px; left:35px; display:flex; align-items:center; flex-wrap:wrap; gap:12px; pointer-events:auto; }
 .development-previews button { padding:6px 9px; font-size:12px; color:#9bcfdf; border:1px solid #49758a66; background:#071924; }
 .development-previews small { font-size:10px; color:#779baa; }

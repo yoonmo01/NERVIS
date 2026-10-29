@@ -1,6 +1,6 @@
 # Current hologram preview
 
-The viewer loads `nervis-hologram-brain-narrow-gap.glb`, `hologram-region-map-narrow-gap.json` and `hologram-render-contract-narrow-gap.json`. Earlier model files remain available for rollback.
+The viewer loads `nervis-hologram-brain-narrow-gap.glb`, `hologram-region-map-narrow-gap.json` and `hologram-render-contract-narrow-gap.json`. Earlier model files were removed from the working assets on 2026-10-29 after verified local backup to `tmp/repo_cleanup_20261029_205611/`. They remain recoverable through Git history as well. The current GLB, both current JSON files and shaders were hash-checked unchanged during cleanup.
 
 The model contains two cortex shells, twenty selectable cortical regions, and cerebellum and brainstem context meshes. Region boundaries illustrate a general brain; they do not represent the supplied subject's exact anatomy. No supplied MRI, mask or time series is embedded in the model.
 

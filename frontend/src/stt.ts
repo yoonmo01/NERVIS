@@ -40,7 +40,7 @@ export class Dictation {
   private timer: ReturnType<typeof setTimeout> | undefined
   private silenceMs: number
 
-  constructor(update: (state: DictationState) => void, commit: (text: string) => void, silenceMs = 0) {
+  constructor(update: (state: DictationState) => void, commit: (text: string) => void, silenceMs = 0, private language: 'ko' | 'en' = 'ko') {
     this.update = update; this.commit = commit; this.silenceMs = silenceMs
   }
   private set(patch: Partial<DictationState>) { this.state = { ...this.state, ...patch }; this.update(this.state) }
@@ -108,7 +108,7 @@ export class Dictation {
       this.worklet = worklet
       const source = context.createMediaStreamSource(stream)
       this.source = source
-      const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/stt/stream`)
+      const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/stt/stream?language=${this.language}`)
       this.socket = socket
       const transcript = new Transcript()
       let speechSamples = 0, silentSamples = 0

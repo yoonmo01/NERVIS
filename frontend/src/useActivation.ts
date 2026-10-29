@@ -129,11 +129,12 @@ export function useActivation(started: boolean, canWake: boolean, onClap: () => 
       if (state.partial && isWakePhrase(state.partial)) activateRef.current()
       if (state.phase === 'error') { setNotice(state.error); setArmed(false) }
       if (state.phase === 'off' && !busy.current) timer = setTimeout(() => { if (!cancelled) void current.start(workletUrl) }, 500)
-    }, text => { if (!cancelled && isWakePhrase(text)) activateRef.current() })
+    }, text => { if (!cancelled && isWakePhrase(text)) activateRef.current() }, 0, 'en')
     wake.current = current
     void current.start(workletUrl)
     return () => { cancelled = true; clearTimeout(timer); current.cancel(); if (wake.current === current) wake.current = null }
   }, [armed, started, canWake, greeting])
 
-  return { armed, greeting, notice, arm, stop, activate, begin }
+  return { armed, greeting, notice, arm, stop, activate, begin,
+    acknowledge: () => playCue(CUE_FILES.receipt) }
 }

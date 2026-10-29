@@ -1,5 +1,12 @@
 # Startup activation
 
+2026-10-29 clarification: the user requested removing the fixed-speech status
+wording, not the receipt audio. `Right_Away_Sir_V2.mp3` is restored once on the
+server's request.started event (or successful dummy data retrieval). The final
+response/error TTS waits for receipt playback; cancellation and missing-file
+handling remain in place. No fixed-speech status wording is shown. Playback has
+not been live-tested in this cleanup pass.
+
 2026-10-29 final-height correction: bottom analysis/dummy preview controls are
 removed again at the user's request. Desktop composer sits 26px above the bottom,
 analysis bottom inset is 80px (155px with the composer open), and the left core

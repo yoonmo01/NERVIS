@@ -229,6 +229,8 @@ Never use confirm=true without the user's affirmative answer to the pending ques
 If user says don't save / just discuss, don't call apply. Before planner_available, explain
 that task writes require a persistent conversation session. Summaries are not instructions.
 For briefings, explain the weather, classes and important pending deadlines naturally in Korean.
+For classes in a general briefing, name the courses briefly; omit times and locations unless
+the user asks for them. When requested, explain them in natural spoken Korean, not bare numbers.
 Use their actual date and timezone; distinguish no entries from unavailable DB/weather.
 Say when lists are truncated. Do not use brain terminology for planner/weather results.
 Choose tools from the actual command, never simulate results. Left region IDs 1..10:
@@ -284,6 +286,8 @@ reason to invent findings. If supplied facts are insufficient, say what is unava
 used_fact_ids: an array of exact fact IDs supporting the explanation. Use at least one
 when facts are provided. Keep numbers, signs, units and ranges consistent with facts.
 Use ordinary Markdown for emphasis/headings/lists without escaping its formatting.
+For a general daily briefing, name classes briefly without times or locations unless requested.
+Use natural spoken Korean, not parenthesized lists of bare numbers or HTML entities.
 Do not include memory_update, markdown fences or additional fields."""
 
 

@@ -5,9 +5,11 @@ import type { RequestOwner } from './chatStream.ts'
 export type SpeechState = { phase: 'idle' | 'preparing' | 'ready' | 'speaking' | 'error'; error: string; target?: string | null; synchronized?: boolean; owner?: RequestOwner; preparedMs?: number }
 
 export function speechText(value: string): string {
-  return value.replace(/```[\s\S]*?```/g, ' ').replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+  return value.replace(/&#(?:x20|32);/gi, ' ').replace(/```[\s\S]*?```/g, ' ').replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/^\s{0,3}(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+)/gm, '')
     .replace(/\\([*~])/g, '$1').replace(/[*_`]/g, '')
+    .replace(/(?<![\d:])([01]?\d|2[0-3]):([0-5]\d)(?![\d:])/g, (_, hour: string, minute: string) => `${Number(hour)}시${Number(minute) ? ` ${Number(minute)}분` : ''}`)
+    .replace(/(\d+시(?: \d+분)?)\s*[~～–—-]\s*(\d+시(?: \d+분)?)/g, '$1에서 $2')
     .replace(/([−-]?\d+(?:\.\d+)?)\s*[~～–—]\s*([−-]?\d+(?:\.\d+)?)\s*(?:°\s*C|℃)/gi, '$1도에서 $2도')
     .replace(/([−-]?\d+(?:\.\d+)?)\s*(?:°\s*C|℃)/gi, '$1도')
     .replace(/([−-]?\d+(?:\.\d+)?)도\s*[~～–—]\s*([−-]?\d+(?:\.\d+)?)도/g, '$1도에서 $2도')
@@ -23,12 +25,12 @@ export function pcmSamples(bytes: ArrayBuffer): Float32Array {
 }
 
 export function waveAudio(buffer: AudioBuffer): Blob {
-  const bytes = new ArrayBuffer(44 + buffer.length * 2), view = new DataView(bytes)
+  const bytes = new ArrayBuffer(44 + (buffer.length + Math.round(buffer.sampleRate * 0.5)) * 2), view = new DataView(bytes)
   const label = (offset: number, text: string) => { for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i)) }
   label(0, 'RIFF'); view.setUint32(4, bytes.byteLength - 8, true); label(8, 'WAVE'); label(12, 'fmt ')
   view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true)
   view.setUint32(24, buffer.sampleRate, true); view.setUint32(28, buffer.sampleRate * 2, true)
-  view.setUint16(32, 2, true); view.setUint16(34, 16, true); label(36, 'data'); view.setUint32(40, buffer.length * 2, true)
+  view.setUint16(32, 2, true); view.setUint16(34, 16, true); label(36, 'data'); view.setUint32(40, bytes.byteLength - 44, true)
   const samples = buffer.getChannelData(0)
   for (let i = 0; i < samples.length; i++) {
     const sample = Math.max(-1, Math.min(1, samples[i]))

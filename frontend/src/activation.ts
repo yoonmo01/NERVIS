@@ -1,5 +1,5 @@
 export function isWakePhrase(text: string) {
-  return /(?:hey|헤이|해이|헤이이)(?:nervis|너비스|네르비스|네비스|널비스|너비쓰)/i.test(text.replace(/[^a-z가-힣]/gi, ''))
+  return /hey(?:nervis|nervous)/i.test(text.replace(/[^a-z]/gi, ''))
 }
 
 // Two short loud bursts, with a quiet gap; not a general sound classifier.
