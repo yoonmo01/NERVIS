@@ -10,6 +10,11 @@ test('speech text removes display markup while preserving Korean and decimal val
   assert.throws(() => pcmSamples(new ArrayBuffer(1)))
 })
 
+test('speech text reads Celsius symbols and ranges as Korean degrees without changing Fahrenheit units', () => {
+  assert.equal(speechText('현재 **8°C**, 예보는 8\\~9°C입니다.'), '현재 8도, 예보는 8도에서 9도입니다.')
+  assert.equal(speechText('최저 -2.5℃, 8°C~9°C, 화씨 단위 32°F'), '최저 -2.5도, 8도에서 9도, 화씨 단위 화씨 32도')
+})
+
 function browser(t: TestContext) {
   let closes = 0, stops = 0
   const sources: Source[] = []

@@ -7,7 +7,12 @@ export type SpeechState = { phase: 'idle' | 'preparing' | 'ready' | 'speaking' |
 export function speechText(value: string): string {
   return value.replace(/```[\s\S]*?```/g, ' ').replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/^\s{0,3}(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+)/gm, '')
-    .replace(/[*_`]/g, '').replace(/\s+/g, ' ').trim()
+    .replace(/\\([*~])/g, '$1').replace(/[*_`]/g, '')
+    .replace(/([−-]?\d+(?:\.\d+)?)\s*[~～–—]\s*([−-]?\d+(?:\.\d+)?)\s*(?:°\s*C|℃)/gi, '$1도에서 $2도')
+    .replace(/([−-]?\d+(?:\.\d+)?)\s*(?:°\s*C|℃)/gi, '$1도')
+    .replace(/([−-]?\d+(?:\.\d+)?)도\s*[~～–—]\s*([−-]?\d+(?:\.\d+)?)도/g, '$1도에서 $2도')
+    .replace(/([−-]?\d+(?:\.\d+)?)\s*°\s*F/gi, '화씨 $1도')
+    .replace(/\s+/g, ' ').trim()
 }
 
 export function pcmSamples(bytes: ArrayBuffer): Float32Array {

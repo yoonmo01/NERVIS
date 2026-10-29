@@ -28,7 +28,7 @@ export function useActivation(started: boolean, canWake: boolean, onClap: () => 
   }
   const playCue = async (file: CueFile, after?: () => void): Promise<void> => {
     if (busy.current) return Promise.resolve()
-    busy.current = true; wake.current?.cancel(); setGreeting(true); setNotice('고정 안내 음성 재생 중')
+    busy.current = true; wake.current?.cancel(); setGreeting(true); setNotice('')
     const current = ++generation.current
     const audio = cue.current ?? new Audio()
     cue.current = audio
@@ -69,13 +69,13 @@ export function useActivation(started: boolean, canWake: boolean, onClap: () => 
     } catch (error) {
       if (current !== generation.current) return
       setNotice(error instanceof DOMException && error.name === 'NotAllowedError'
-        ? '마이크 또는 음성 재생 권한을 허용한 뒤 시작 준비를 눌러 주세요.'
+        ? '마이크 또는 음성 재생 권한을 허용한 뒤 NERVIS 깨우기를 눌러 주세요.'
         : `마이크 연결과 ${CUE_FILES.welcome} 파일을 확인한 뒤 다시 준비해 주세요.`)
     }
   }
 
   useEffect(() => {
-    const hide = () => { if (document.hidden) { stop(); setNotice('대기를 중지했습니다. 시작 준비로 다시 켤 수 있습니다.') } }
+    const hide = () => { if (document.hidden) { stop(); setNotice('') } }
     const leave = () => stop()
     document.addEventListener('visibilitychange', hide); window.addEventListener('pagehide', leave)
     return () => { stop(); document.removeEventListener('visibilitychange', hide); window.removeEventListener('pagehide', leave) }
@@ -135,6 +135,5 @@ export function useActivation(started: boolean, canWake: boolean, onClap: () => 
     return () => { cancelled = true; clearTimeout(timer); current.cancel(); if (wake.current === current) wake.current = null }
   }, [armed, started, canWake, greeting])
 
-  return { armed, greeting, notice, arm, stop, activate, begin,
-    acknowledge: () => playCue(CUE_FILES.receipt) }
+  return { armed, greeting, notice, arm, stop, activate, begin }
 }

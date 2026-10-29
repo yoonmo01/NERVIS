@@ -83,7 +83,7 @@ dl{
   pointer-events:none
 }
 .app::after{
-  content:"";
+  content:none;
   position:absolute;
   inset:18px;
   border:1px solid rgba(86,166,195,.07);

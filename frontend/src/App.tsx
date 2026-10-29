@@ -5,15 +5,14 @@ import { useConversation } from './useConversation.ts'
 import { isTaskTool } from './tasks.ts'
 import AnalysisView from './AnalysisView.tsx'
 import BriefingCards from './BriefingCards.tsx'
-import { briefingFromResults, previewKind } from './briefing.ts'
+import { briefingFromResults } from './briefing.ts'
 import type { Briefing } from './briefing.ts'
 import { api, ApiError } from './api.ts'
 import type { Region, Summary } from './api.ts'
 import { INTRO, introStage, toggleComposer } from './model.ts'
 import type { ComposerPanel, IntroStage } from './model.ts'
-import { useAudioPreview } from './audio.ts'
 import { useSpeech } from './useSpeech.ts'
-import { Composer, Icon } from './Interface.tsx'
+import { Composer } from './Interface.tsx'
 import ConversationPanel, { CalculationResults } from './ConversationPanel.tsx'
 import { checkedReply, viewSelection, pending, aiErrorMessage, interfaceState } from './conversation.ts'
 import type { AIStatus, AIReply, CommandPhase, ViewContext, ViewRequest } from './conversation.ts'
@@ -48,7 +47,6 @@ export default function App() {
   const [awaitingPlayback, setAwaitingPlayback] = useState<{ owner: RequestOwner; view: 'home' | 'analysis' | null; shown: boolean; started?: boolean } | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [stage, setStage] = useState<IntroStage>(() => introStage(0, reduced))
-  const [replay, setReplay] = useState(0)
   const [skipped, setSkipped] = useState(false)
   const [view, setView] = useState<'home' | 'analysis'>('home')
   const [explored, setExplored] = useState(false)
@@ -57,7 +55,6 @@ export default function App() {
   const [voiceActive, setVoiceActive] = useState(false)
   const [introStarted, setIntroStarted] = useState(false)
   const [voiceTrigger, setVoiceTrigger] = useState(0)
-  const [briefingPreview, setBriefingPreview] = useState(false)
   const [briefingCards, setBriefingCards] = useState<{ id: number; value: Briefing; owner: RequestOwner } | null>(null)
   const cardsFlight = useRef(false)
   const onCardsReady = useCallback((requestId: string) => {
@@ -148,54 +145,40 @@ export default function App() {
     stageOwner.current = ownerRef.current
     setStageRequest({ id, selection }); setExplored(true); setView('analysis'); setPanel(null); setPhase('applying')
   }
-  const send = async () => {
-    if (flight.current || locked || voiceActive || (!briefingPreview && (!aiStatus?.enabled || aiStatus.busy)) || !draft.trim() || !data) return
+  const send = async (preview = false) => {
+    if (flight.current || locked || voiceActive || (!preview && ((!aiStatus?.enabled || aiStatus.busy) || !draft.trim())) || !data) return
     flight.current = true; expectedStage.current = null
     let requestOwner: RequestOwner = { request_id: crypto.randomUUID(), session_id: conversation.value?.id ?? crypto.randomUUID() }
     ownerRef.current = requestOwner; setOwner(requestOwner); speech.claim(requestOwner)
     speech.prepare()
-    const submitted = draft.trim(), current = new AbortController()
+    const submitted = preview ? '오늘 할 일 알려줘 · 더미 미리보기' : draft.trim(), current = new AbortController()
     controller.current = current
     const ownsRequest = () => mounted.current && ownerRef.current?.request_id === requestOwner.request_id
-    let receipt = Promise.resolve(), acknowledged = false
-    const acknowledge = () => {
-      if (acknowledged || !ownsRequest()) return
-      acknowledged = true; receipt = activation.acknowledge()
-    }
-    setWorkStatus(briefingPreview ? '더미 미리보기 결과를 불러오고 있습니다.' : '요청을 연결하고 있습니다.')
+    setWorkStatus('요청을 연결하고 있습니다.')
     setCommand(submitted); setReply(null); setRequestError(''); setPhase('requesting'); setResultOpen(true); setAnalysisTab('response')
     setBriefingCards(null); cardsFlight.current = false
     const timeout = setTimeout(() => current.abort(), 180000)
     try {
       let packet: AIReply
-      if (briefingPreview) {
-        const kind = previewKind(submitted)
-        if (!kind) throw new Error('더미 미리보기에서는 “오늘 할 일 알려줘” 또는 “오늘 날씨 알려줘”를 입력해 주세요. 분석은 미리보기를 끄고 요청하세요.')
+      if (preview) {
         const value = await api<Briefing>('/api/briefing/preview', current.signal)
-        acknowledge()
-        packet = { status: 'ok', warning: null, model_acknowledgement: kind === 'weather' ? '날씨 카드의 더미 미리보기입니다.' : '더미 브리핑 미리보기입니다. 날씨, 오늘 수업과 해야 할 일을 순서대로 정리했습니다.',
-          results: [{ result_id: `preview-${++sequence.current}`, tool: kind === 'briefing' ? 'get_daily_briefing' : 'get_weather', parameters: {},
-            data: kind === 'briefing' ? value as unknown as Record<string, unknown> : { ...value.weather, kind: 'weather', preview: true } }] }
-        packet.segments = previewSegments(value, kind === 'weather')
-        packet.model_acknowledgement = packet.segments.map(s => s.text).join(' ')
+        packet = { status: 'ok', warning: null,
+          model_acknowledgement: previewSegments(value, false).map(segment => segment.text).join(' '),
+          results: [{ result_id: `preview-${++sequence.current}`, tool: 'get_daily_briefing', parameters: {}, data: value as unknown as Record<string, unknown> }] }
       } else {
         const sessionId = await conversation.ensure()
         if (!ownsRequest() || current.signal.aborted) return
         requestOwner = { ...requestOwner, session_id: sessionId }
         ownerRef.current = requestOwner; setOwner(requestOwner); speech.claim(requestOwner)
         packet = await streamChat({ command: submitted, context: context.current, ...requestOwner }, current.signal, event => {
-          if (ownsRequest() && !current.signal.aborted && event.session_id === requestOwner.session_id) {
-            if (event.type === 'request.started') acknowledge()
-            setWorkStatus(workMessage(event))
-          }
+          if (ownsRequest() && !current.signal.aborted && event.session_id === requestOwner.session_id) setWorkStatus(workMessage(event))
         })
       }
-      await receipt
       const response = checkedReply(packet, data.summary.dataset_version)
       if (!ownsRequest() || current.signal.aborted) return
       const selection = viewSelection(response)
       const briefing = briefingFromResults(response.results)
-      setReply(response); setDraft('')
+      setReply(response); if (!preview) setDraft('')
       setWorkStatus('결과를 받았습니다. 화면과 음성을 준비하고 있습니다.')
       setPanel(null); setPhase('applying')
       setAwaitingPlayback({ owner: requestOwner, view: selection ? 'analysis' : briefing || response.results.some(result => isTaskTool(result.tool)) ? 'home' : null, shown: false })
@@ -209,7 +192,6 @@ export default function App() {
         setBriefingCards({ id: ++sequence.current, value: briefing, owner: requestOwner }); cardsFlight.current = true
       }
     } catch (error) {
-      await receipt
       if (!ownsRequest()) return
       const message = error instanceof ApiError ? aiErrorMessage(error.code) : error instanceof DOMException && error.name === 'AbortError'
         ? '응답을 3분 안에 받지 못했습니다. 서버 처리가 계속될 수 있어 자동 재전송하지 않습니다.'
@@ -219,7 +201,7 @@ export default function App() {
     } finally {
       clearTimeout(timeout)
       if (controller.current === current) controller.current = null
-      if (ownsRequest()) { void refreshAI(); if (!briefingPreview) { void conversation.reload(); if (historyOpen) void conversation.loadSessions() } }
+      if (ownsRequest()) { void refreshAI(); if (!preview) { void conversation.reload(); if (historyOpen) void conversation.loadSessions() } }
     }
   }
   const resetConversationView = () => {
@@ -241,7 +223,6 @@ export default function App() {
     context.current = selected.state.context ?? { selected_region_ids: [], start: 1, end: 200 }
     resetConversationView()
   }
-  const audio = useAudioPreview()
   const stopResponse = () => {
     stagingId.current = null; setPreparedAnalysis(null); setAwaitingPlayback(null)
     speech.claim(null); ownerRef.current = null; setOwner(null); setWorkStatus('')
@@ -282,7 +263,7 @@ export default function App() {
     if (reduced || skipped) return
     const timers = Object.values(INTRO).map(time => setTimeout(() => setStage(introStage(time)), time))
     return () => timers.forEach(clearTimeout)
-  }, [reduced, replay, skipped, introStarted])
+  }, [reduced, skipped, introStarted])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -306,11 +287,8 @@ export default function App() {
     return () => controller.abort()
   }, [retry])
 
-  const explore = () => { audio.stop(); setExplored(true); setPanel(null); setView('analysis') }
-  const home = () => { audio.stop(); setPanel(null); setView('home') }
-  const restart = () => { activation.stop(); home(); setIntroStarted(false); setSkipped(false); setReplay(v => v + 1) }
   const ready = introStarted && stage === 'ready'
-  const baseLocked = !ready || audio.active || speech.active || pending(phase) || (view === 'analysis' && analysisBusy)
+  const baseLocked = !ready || speech.active || pending(phase) || (view === 'analysis' && analysisBusy)
   const activation = useActivation(introStarted, !baseLocked && !voiceActive && panel === null && !historyOpen,
     () => { setSkipped(false); setIntroStarted(true) },
     () => { setPanel('voice'); setVoiceTrigger(value => value + 1) })
@@ -325,11 +303,11 @@ export default function App() {
     window.addEventListener('keydown', shortcut)
     return () => window.removeEventListener('keydown', shortcut)
   }, [introStarted, locked, activation.stop])
-  const canSend = !locked && (briefingPreview || (!conversation.loading && !conversation.error)) && connection === 'ready' && (briefingPreview || (!!aiStatus?.enabled && !aiStatus.busy))
-  const inputStatus = !briefingPreview && conversation.loading ? '대화 기록을 불러오는 중입니다.' : !briefingPreview && conversation.error ? conversation.error : briefingPreview ? '더미 미리보기 · “오늘 할 일 알려줘” · AI 호출·DB 저장 없음' : !aiStatus ? 'AI 서버 연결을 확인해 주세요.' : aiStatus.busy ? '이전 요청을 처리 중입니다.' : !aiStatus.enabled ? 'AI가 비활성 상태입니다. 서버 설정을 확인해 주세요.' : ''
+  const canSend = !locked && (!conversation.loading && !conversation.error) && connection === 'ready' && (!!aiStatus?.enabled && !aiStatus.busy)
+  const inputStatus = conversation.loading ? '대화 기록을 불러오는 중입니다.' : conversation.error ? conversation.error : !aiStatus ? 'AI 서버 연결을 확인해 주세요.' : aiStatus.busy ? '이전 요청을 처리 중입니다.' : !aiStatus.enabled ? 'AI가 비활성 상태입니다. 서버 설정을 확인해 주세요.' : ''
   const corePhase = phase === 'complete' && reply?.status === 'partial' && reply.explanation_source !== 'local_results' ? 'error' : phase
   const coreState = speech.active ? speech.phase === 'speaking' ? 'speaking' : 'processing'
-    : interfaceState(corePhase !== 'error' && corePhase !== 'requesting' && view === 'analysis' && analysisBusy ? 'applying' : corePhase, connection !== 'error', !!aiStatus?.enabled, !!aiStatus?.busy, audio.active)
+    : interfaceState(corePhase !== 'error' && corePhase !== 'requesting' && view === 'analysis' && analysisBusy ? 'applying' : corePhase, connection !== 'error', !!aiStatus?.enabled, !!aiStatus?.busy, false)
   const stateLabels = { standby: 'STANDBY', processing: 'PROCESSING', analyzing: 'ANALYZING', error: 'ERROR', paused: 'PAUSED', preview: 'AUDIO PREVIEW', speaking: 'SPEAKING' }
   const selectResult = (selection: StageSelection) => { if (!flight.current && !locked) { setRequestError(''); applySelection(selection) } }
   const briefingIndex = reply?.results.findIndex(r => r.tool === 'get_daily_briefing') ?? -1
@@ -340,12 +318,18 @@ export default function App() {
   const calculationReply = reply ? { ...reply, results: reply.results.filter(r => r.tool !== 'get_daily_briefing' && r.tool !== 'get_weather' && !isTaskTool(r.tool)) } : null
   const calculations = calculationReply?.results.length ? <CalculationResults reply={calculationReply} regions={data?.regions ?? []} locked={locked} onSelect={selectResult} /> : null
 
-  return <div className={`app app--${stage} app--${view}${briefingCards ? ' has-briefing' : ''}${briefingCards && phase === 'applying' ? ' briefing-presenting' : ''}${panel ? ' app--composer-open' : ''}${audio.active ? ' app--preview' : ''}`}>
+  return <div className={`app app--${stage} app--${view}${briefingCards ? ' has-briefing' : ''}${briefingCards && phase === 'applying' ? ' briefing-presenting' : ''}${panel ? ' app--composer-open' : ''}`}>
     <div className="background-grid" aria-hidden="true" />
     <header className="interface-header">
       <div className="brand"><h1>NERVIS</h1><span>NEURAL DATA EXPLORER</span></div>
       <div className="header-center"><i />INTERACTIVE NEURAL INTERFACE<i /></div>
       <div className="header-actions">
+      {ready && <div className="activation-controls">
+        {activation.greeting && <button onClick={() => activation.stop()}>안내음 중지</button>}
+        <button aria-pressed={activation.armed} disabled={baseLocked || voiceActive || activation.greeting} onClick={() => activation.armed ? activation.stop() : void activation.arm()}>{activation.armed ? '음성 호출 끄기' : '음성 호출 켜기'}</button>
+      </div>}
+      {speech.active && <button className="speech-stop" onClick={stopResponse} aria-label="응답 음성 중지" title="응답 음성 중지">■</button>}
+      {ready && view === 'analysis' && <button disabled={locked || voiceActive} onClick={() => { setPanel(null); setView('home') }}>대화 홈</button>}
       {ready && <div className="conversation-controls">
         <button disabled={locked || conversation.loading} onClick={() => { if (!historyOpen) void conversation.loadSessions(); setHistoryOpen(open => !open) }}>대화 기록{conversation.value ? ` · ${conversation.value.messages.length}` : ''}</button>
         <button disabled={locked || voiceActive || conversation.loading} onClick={() => { void newConversation() }}>새 대화</button>
@@ -359,16 +343,15 @@ export default function App() {
     {(stage === 'title' || stage === 'dock') && <div className="intro-caption"><span>AN INTERFACE TO EXPLORE</span><p>기록 속의 관계를 발견하다</p></div>}
     {!introStarted && <div className="activation-wait" role="region" aria-label="NERVIS 시작 대기">
       <p>{activation.armed ? '박수 두 번으로 시작하세요' : 'NERVIS 시작 대기'}</p>
-      <small>{activation.armed ? '짝, 짝 · 약 0.2~0.8초 간격' : '시작 준비를 누르고 마이크 권한을 허용해 주세요.'}</small>
-      <button onClick={() => activation.armed ? activation.stop() : void activation.arm()}>{activation.armed ? '대기 중지' : '시작 준비'}</button>
-      <small>Ctrl + Shift + Space로도 시작할 수 있습니다.</small>
+      <small>{activation.armed ? '짝, 짝 · 박수 두 번을 기다리고 있습니다.' : '마이크 연결 후 박수 두 번으로 시작합니다.'}</small>
+      <button onClick={() => activation.armed ? activation.stop() : void activation.arm()}>{activation.armed ? '연결 해제' : 'NERVIS 깨우기'}</button>
     </div>}
-    {introStarted && !ready && <button className="skip-intro" onClick={() => setSkipped(true)}>인트로 건너뛰기 <span>↗</span></button>}
+    {!ready && <button className="skip-intro" onClick={() => { activation.stop(); setIntroStarted(true); setSkipped(true) }}>인트로 건너뛰기 <span>↗</span></button>}
 
     <div className={`core-stage state-${coreState}`} aria-hidden="true">
       <div className="core-aura" />
       <div className="orbit-guide"><span className="orbit-notch n1" /><span className="orbit-notch n2" /><span className="orbit-notch n3" /></div>
-      {(stage === 'core' || ready) && <CoreScene level={speech.active ? speech.level : audio.level} reduced={reduced} state={coreState} dense={view === 'home'} />}
+      {(stage === 'core' || ready) && <CoreScene level={speech.level} reduced={reduced} state={coreState} dense={view === 'home'} />}
       <div className="core-crosshair ch-left" /><div className="core-crosshair ch-right" />
     </div>
 
@@ -379,15 +362,21 @@ export default function App() {
 
       {data && [...(explored ? [{ request: stageRequest, preparing: false }] : []), ...(preparedAnalysis ? [{ request: preparedAnalysis.request, preparing: true }] : [])].map(entry =>
         <div key={entry.request?.id ?? 'preview'} className="analysis-container" style={entry.preparing ? { visibility: 'hidden', pointerEvents: 'none' } : undefined}
-          aria-hidden={entry.preparing || view !== 'analysis'} inert={entry.preparing || audio.active || phase === 'requesting'} hidden={!entry.preparing && view !== 'analysis'}>
+          aria-hidden={entry.preparing || view !== 'analysis'} inert={entry.preparing || phase === 'requesting'} hidden={!entry.preparing && view !== 'analysis'}>
           <AnalysisView request={entry.request} onApplied={onApplied} onContext={onContext} regions={data.regions} version={data.summary.dataset_version}
-            active={entry.preparing || view === 'analysis'} presenting={!entry.preparing && view === 'analysis'} blocked={audio.active || phase === 'requesting'} reduced={reduced}
+            active={entry.preparing || view === 'analysis'} presenting={!entry.preparing && view === 'analysis'} blocked={phase === 'requesting'} reduced={reduced}
             onBusyChange={onStageBusy} response={resultPanel} calculations={calculations} tab={analysisTab} onTab={setAnalysisTab} />
         </div>)}
     </main>
 
     <div className={`common-interface${ready ? ' is-ready' : ''}`} inert={!ready}>
-      {ready && view === 'home' && <label className="briefing-preview-control"><input type="checkbox" aria-label="더미 브리핑 미리보기" checked={briefingPreview} disabled={locked} onChange={e => setBriefingPreview(e.target.checked)} />더미 미리보기</label>}
+      {ready && <div className="development-previews" aria-label="작업용 미리보기">
+        <button disabled={locked || voiceActive || connection !== 'ready'} onClick={() => {
+          activation.stop(); setPanel(null); setExplored(true); setView('analysis')
+        }}>분석 미리보기</button>
+        <button disabled={locked || voiceActive || connection !== 'ready'} title="합성 데이터 · AI 텍스트/DB 저장 없음 · TTS는 실제 유료 요청" onClick={() => { void send(true) }}>더미 데이터 다시 보기</button>
+        <small>작업용 · 더미 음성은 실제 TTS 사용</small>
+      </div>}
       {ready && view === 'home' && briefingCards && !awaitingPlayback && <BriefingCards key={briefingCards.id} value={briefingCards.value} reduced={reduced} onReady={() => onCardsReady(briefingCards.owner.request_id)}
         prefix={briefingPrefix}
         playback={{ active: speechOwned && briefingCards.owner.request_id === owner?.request_id && speech.active && speech.synchronized === true, target: speechTarget }} />}
@@ -400,29 +389,11 @@ export default function App() {
       <Composer voiceTrigger={voiceTrigger} beforeVoice={() => activation.stop()} onVoiceActive={setVoiceActive} canSend={canSend} status={inputStatus} onSend={() => { void send() }} panel={panel} draft={draft} onDraft={setDraft} closable={true} locked={locked}
         onToggle={target => { activation.stop(); setPanel(current => toggleComposer(current, target, view)) }}
         onClose={() => setPanel(null)} />
-      <footer className="shell-footer">
-        <div className="shell-actions"><span>INTERFACE / 02</span>
-          <button className="local-view-button" disabled={locked || (view === 'home' && connection !== 'ready')} onClick={view === 'home' ? explore : home}>
-            {view === 'home' ? '분석 화면 미리보기 ↗' : '대화 홈으로 ↖'}</button>
-        </div>
-        <div className="speech-actions" aria-label="응답 음성">
-          {speech.active && <button onClick={stopResponse}>음성 중지</button>}
-          <span role="status">{speech.phase === 'preparing' ? '전체 응답 음성 생성 중 · 완료 후 재생합니다.' : speech.phase === 'ready' ? `음성 준비 완료 (${((speech.preparedMs ?? 0) / 1000).toFixed(1)}초) · 화면 준비 대기` : speech.phase === 'speaking' ? '응답 연속 재생 중' : phase === 'requesting' ? workStatus : phase === 'applying' ? '결과를 화면에 정리하고 있습니다.' : ''}</span>
-        </div>
-        <button className={`sound-preview${audio.active ? ' active' : ''}`} disabled={speech.active || voiceActive || pending(phase) || !ready || (view === 'analysis' && analysisBusy)} onClick={() => audio.active ? audio.stop() : void audio.play()}>
-          <Icon name="sound" />{audio.active ? '미리보기 중지' : '코어 음량 반응 미리보기'}<small>로컬 합성음 · AI 음성 아님</small>
-        </button>
-        <button className="replay-button" onClick={restart} disabled={locked}>시작 연출 다시 보기 ↗</button>
-      </footer>
+
       {!aiStatus && ready && <div className="ai-connection-error" role="status">AI 서버 연결을 확인하지 못했습니다. <button disabled={pending(phase)} onClick={() => { void refreshAI() }}>다시 확인</button></div>}
       {connection === 'error' && <div className="shell-error" role="alert"><p>{connectionError}</p><button onClick={() => setRetry(v => v + 1)}>서버 연결 다시 확인</button></div>}
     </div>
-    {ready && <div className="activation-status">
-      <span role="status">{activation.greeting ? 'NERVIS · 안내 음성 재생 중' : activation.armed && !baseLocked && !voiceActive && panel === null ? 'HEY NERVIS · 호출어 대기 (로컬 STT)' : 'Ctrl + Shift + Space · 마이크 켜기/끄기'}</span>
-      {activation.greeting && <button onClick={() => activation.stop()}>안내음 중지</button>}
-      <button disabled={baseLocked || voiceActive || activation.greeting} onClick={() => activation.armed ? activation.stop() : void activation.arm()}>{activation.armed ? '호출어 대기 끄기' : '호출어 대기 켜기'}</button>
-    </div>}
     {activation.notice && <p className="activation-notice" role="status">{activation.notice}</p>}
-    {(speech.error || audio.error) && <p className="audio-error" role="alert">{speech.error || audio.error}</p>}
+    {speech.error && <p className="audio-error" role="alert">{speech.error}</p>}
   </div>
 }

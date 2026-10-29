@@ -122,7 +122,7 @@ export default function AnalysisView({ regions, version, active, presenting = ac
       <div className="analysis-tabs" role="group" aria-label="왼쪽 패널 선택"><button aria-pressed={activeTab === 'mri'} onClick={() => onTab('mri')}>MRI</button><button aria-pressed={activeTab === 'response'} disabled={!response} onClick={() => onTab('response')}>응답</button><button aria-pressed={activeTab === 'calculations'} disabled={!calculations} onClick={() => onTab('calculations')}>계산 결과</button></div>
       <div hidden={activeTab !== 'response'} className="response-dock">{response}</div>
       <div hidden={activeTab !== 'calculations'} className="response-dock calculation-dock">{calculations}</div>
-      <div hidden={activeTab !== 'mri'}>
+      <div hidden={activeTab !== 'mri'} className="mri-dock" tabIndex={0} role="region" aria-label="MRI 이미지와 영역 설명">
       <div className="inline-region-selection">
         <label htmlFor="region-select">선택 영역</label>
         <select id="region-select" value={categoryId ?? choices[0].label_id} disabled={!data && !error} onChange={e => setSelection({ region: Number(e.target.value) })}>{choices.map(item => <option key={item.label_id} value={item.label_id}>{item.name_ko}</option>)}</select>
@@ -173,7 +173,7 @@ export default function AnalysisView({ regions, version, active, presenting = ac
           <div className="current-signal-heading"><span>현재 신호 <small>z-score</small></span><small>SAMPLE {cursor.toString().padStart(3, '0')}</small></div>
           <div className="current-signal-values">{data.comparison.zscore[sampleIndex].map((value, column) => <div key={column} style={roiStyle(data.comparison.regions[column])}><small>{regionLabel(data.comparison.regions[column])}</small><strong>{value.toFixed(2)}</strong></div>)}</div>
         </div>
-        <table className="comparison-table"><caption className="sr-only">선택 영역의 구조 수치</caption><thead><tr><th scope="col">지표</th>{data.comparison.regions.map(item => <th key={item.label_id} scope="col">{regionLabel(item)}</th>)}</tr></thead><tbody>
+        <table className="comparison-table"><caption className="structure-caption">{single || counterparts ? `${data.comparison.regions[0].name_ko}의 구조 수치` : '두 영역의 구조 수치'}</caption><thead><tr><th scope="col">지표</th>{data.comparison.regions.map(item => <th key={item.label_id} scope="col" title={regionLabel(item)}>{counterparts || single ? item.hemisphere === 'Left' ? '왼쪽 피질' : '오른쪽 피질' : regionLabel(item)}</th>)}</tr></thead><tbody>
           <tr><th scope="row">두께 <small>mm</small></th>{data.comparison.regions.map(item => <td key={item.label_id}>{item.thickness_mm.toFixed(3)}</td>)}</tr>
           <tr><th scope="row">부피 <small>mm³</small></th>{data.comparison.regions.map(item => <td key={item.label_id}>{item.volume_mm3.toLocaleString()}</td>)}</tr>
         </tbody></table>

@@ -1,5 +1,33 @@
 # Startup activation
 
+2026-10-29 final-height correction: bottom analysis/dummy preview controls are
+removed again at the user's request. Desktop composer sits 26px above the bottom,
+analysis bottom inset is 80px (155px with the composer open), and the left core
+and its gap are slightly reduced to increase MRI panel height. Reserved MRI
+scrollbar space is removed. Chrome at 100%: closed-input MRI scrollHeight equals
+clientHeight at 1920x911 and 1054x998, including long paired region names.
+Very short viewports retain overflow protection rather than dropping content.
+Screenshot: reports/frontend-mri-20261029/chrome-no-scroll-1054.jpg.
+
+2026-10-29 temporary review controls restored at the user's request: analysis
+preview and dummy briefing replay buttons appear at the bottom. Intro skip is
+available both before and during startup, without needing claps. Dummy replay
+uses only the synthetic preview endpoint for data, does not create a conversation
+or overwrite the input draft, and still generates paid response TTS through the
+configured provider. Controls are intended to be removed before final filming.
+
+2026-10-29 filming UI cleanup supersedes the historical controls below:
+startup controls are at the bottom with `NERVIS 깨우기`; shortcut hints and the
+tab-hidden notice are removed. Actual permission/file errors remain visible.
+Wake toggle is labeled `음성 호출 켜기/끄기` without technical listening text.
+Dummy preview, analysis preview, local sound preview and intro replay controls
+are removed from the app. The dynamic response stop control is a compact square
+in the header. Sending no longer plays the fixed Right Away cue or waits for it.
+Startup Welcome Back and wake Yes Sir cues remain selected via CUE_FILES.
+Speech text normalizes Celsius symbols/ranges to Korean degrees before external
+TTS; AI weather instructions also request the spoken form, preserving values.
+No tests, build, browser/audio checks, paid calls, or commits were performed.
+
 2026-10-29 cue selection update: current actual supplied replacements are the
 three `*_V2.mp3` files. `frontend/src/fixedCues.ts` CUE_FILES selects them for all
 startup, wake and receipt playback, including permission priming. MP4/M4A can

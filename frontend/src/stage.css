@@ -252,6 +252,52 @@
 .selection-panel .inline-region-selection { margin-bottom:12px; }
 .selection-panel .inline-region-selection label { display:block; margin:0 0 6px; font-size:10px; color:#8fb8ca; }
 .selection-panel .inline-region-selection select { width:100%; margin:0; padding:9px 10px; }
+
+/* Enlarge labels and values without changing MRI canvas or brain-stage size. */
+.analysis-workspace--expanded .comparison-panel h2 { font-size:21px; }
+.current-signal-heading { font-size:14px; }
+.current-signal-heading small { font-size:11px; color:#9dc2d2; }
+.current-signal-values small { font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
+.current-signal-values strong { font-size:30px; }
+.comparison-table { font-size:14px; }
+.comparison-table thead th { font-size:13px; line-height:1.5; overflow-wrap:anywhere; }
+.comparison-table small { font-size:11px; color:#9abccc; }
+.stage-correlation span { font-size:12px; line-height:1.5; }
+.analysis-workspace--expanded .small-metrics { font-size:13px; line-height:1.5; }
+.response-dock .conversation-result { font-size:13px; line-height:1.8; }
+.selection-panel .command-result { overflow-x:auto; }
+.selection-panel .result-table { min-width:240px; font-size:13px; }
+.selection-panel .result-table caption { font-size:13px; line-height:1.5; }
+.selection-panel .result-table th, .selection-panel .result-table td { padding:9px 5px; }
+.selection-panel .result-metrics, .selection-panel .metric-list { font-size:13px; line-height:1.65; }
+.selection-panel .calculation-basis summary { font-size:13px; }
+.selection-panel .inline-region-selection label { font-size:13px; color:#b7d6e5; }
+.selection-panel .inline-region-selection select { font-size:15px; }
+.mri-pair-button small { font-size:12px; line-height:1.5; color:#c2dce8; }
+.roi-image-pair .region-card small { font-size:11px; }
+.analysis-workspace--expanded .roi-image-pair .region-card h3 { font-size:12px; line-height:1.55; font-weight:600; color:#e2f2f8; overflow-wrap:anywhere; word-break:keep-all; }
+.stage-origin, .stage-disclaimer, .selection-orientation { font-size:12px; line-height:1.7; color:#a3c3d3; }
+.card-detail-link { font-size:10px; }
+.selection-panel .roi-image-pair { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; }
+.selection-panel .roi-image-pair .region-card { min-width:0; box-sizing:border-box; display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto 1fr; align-content:start; }
+.selection-panel .region-card>div { min-width:0; }
+.comparison-table { table-layout:fixed; }
+.comparison-table .structure-caption { caption-side:top; text-align:left; font-size:14px; line-height:1.6; color:#c7e4ef; font-weight:500; padding:0 0 10px; overflow-wrap:anywhere; word-break:keep-all; }
+.comparison-table th:first-child { width:24%; }
+.comparison-table thead th { max-width:none; white-space:normal; word-break:keep-all; overflow-wrap:anywhere; }
+.brain-heading>.eyebrow { position:relative; top:-5px; }
+.brain-heading>.eyebrow { font-size:11px; }
+.brain-heading .brain-orbit-tools { font-size:11px; line-height:1.5; }
+.brain-heading .brain-orbit-tools button { font-size:11px; padding:5px 7px; }
+.brain-heading { flex-wrap:wrap; row-gap:7px; }
+.stage-sample { font-size:10px; color:#8fb7cb; }
+.stage-sample b { font-size:21px; }
+
+@media(min-width:1001px) {
+  .analysis-workspace--expanded .selection-panel { overflow:hidden; }
+  .selection-panel>h2 { flex-shrink:0; }
+  .selection-panel .mri-dock { flex:1; min-height:0; min-width:0; overflow-x:hidden; overflow-y:auto; }
+}
 @media(max-height:820px) and (min-width:1001px) {
   .analysis-stage .brain-panel { padding:12px 14px 0; }
   .analysis-workspace--expanded .analysis-stage .signal-panel { padding:10px 14px; }
