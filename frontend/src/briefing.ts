@@ -8,15 +8,7 @@ export interface Briefing {
   has_more_classes?: boolean; has_more_tasks?: boolean;
 }
 
-export type BriefingStage = 'weather' | 'classes' | 'tasks' | 'overview' | 'docking' | 'docked'
-export function briefingTimeline(weatherOnly = false): { at: number; phase: BriefingStage }[] {
-  return weatherOnly ? [{ at: 0, phase: 'weather' }, { at: 2800, phase: 'docking' }, { at: 3800, phase: 'docked' }]
-    : [{ at: 0, phase: 'weather' }, { at: 2800, phase: 'classes' }, { at: 5600, phase: 'tasks' }, { at: 8400, phase: 'overview' }, { at: 10400, phase: 'docking' }, { at: 11400, phase: 'docked' }]
-}
-export function briefingStageAt(elapsed: number, weatherOnly = false, reduced = false): BriefingStage {
-  if (reduced) return 'docked'
-  return briefingTimeline(weatherOnly).filter(step => step.at <= elapsed).at(-1)?.phase ?? 'weather'
-}
+export type BriefingStage = 'waiting' | 'weather' | 'classes' | 'tasks' | 'overview' | 'docking' | 'docked'
 
 export function checkBriefing(data: Record<string, unknown>, tool: string) {
   const weather = (tool === 'get_weather' ? data : data.weather) as Weather

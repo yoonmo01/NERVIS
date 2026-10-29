@@ -46,6 +46,31 @@ class CourseRequest(PlannerInput):
     confirm: bool = False
 
 
+def course_preview_requested(command):
+    compact = re.sub(r'\s+', '', command)
+    return bool(re.search(r'(등록|저장|추가|반영)(?:하기)?전', compact) and
+                any(word in compact for word in ('먼저', '설명', '계획', '어떻게', '말해', '알려')))
+
+
+def course_preview(request):
+    lines = ['등록 전에 확인할 계획입니다. 아직 저장하지 않았습니다.']
+    drafts = request.courses or [request.values]
+    for draft in drafts:
+        value = draft.model_dump(mode='json', exclude_none=True)
+        lines.append(f"과목명: {value.get('name') or '확인 필요'}.")
+        for meeting in value.get('meetings', []):
+            weekday = meeting.get('weekday')
+            day = '월화수목금토일'[weekday - 1] + '요일' if weekday is not None else '요일 확인 필요'
+            lines.append(f"{day} {meeting.get('starts_at') or '시작 시각 확인 필요'}부터 {meeting.get('ends_at') or '종료 시각 확인 필요'}까지, 강의실: {meeting.get('location') or '미지정'}.")
+        if not value.get('meetings'):
+            lines.append('요일과 수업 시간을 확인해야 합니다.')
+    lines.append('학기와 적용 기간, 과목명·강의실 표기를 확인하고 등록을 승인해 주시면 저장합니다.')
+    message = ' '.join(lines)
+    if len(message) > 1800:
+        message = '등록 계획이 길어 화면에서 나누어 확인해야 합니다. 아직 저장하지 않았습니다. 과목을 나누어 알려 주세요.'
+    return {'kind': 'course_changes', 'status': 'no_change', 'message': message, 'items': [], 'candidates': []}
+
+
 class CourseManager:
     def __init__(self,store,conn,state):
         self.store,self.conn,self.state=store,conn,state

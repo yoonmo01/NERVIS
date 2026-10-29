@@ -74,8 +74,22 @@ class AITests(PackageCase):
             result = ai.run(self.load(), '비교', {})
             self.assertEqual(result['status'], 'partial')
             self.assertEqual(result['warning'], 'invalid_grounded_explanation')
-            self.assertIsNone(result['model_acknowledgement'])
+            self.assertEqual(result['explanation_source'], 'local_results')
+            self.assertIn(result['explanation_error'], ('invalid_json', 'unknown_fact_ids'))
+            self.assertTrue(result['model_acknowledgement'])
             self.assertEqual(len(result['results']), 1)
+
+    def test_dynamic_segments_use_existing_explanation_request_and_bad_cues_keep_answer(self):
+        for target in ('response', 'r9.tasks.99'):
+            answer = '두 신호가 같은 방향으로 변했습니다.'
+            segments = [{'text': answer, 'target': target}]
+            ai = self.make_ai([response([call()]), response([{'type': 'message', 'content': [{'type': 'output_text',
+                'text': json.dumps({'answer': answer, 'used_fact_ids': ['call_1.comparison'], 'segments': segments})}]}])])
+            result = ai.run(self.load(), '비교', {})
+            self.assertEqual(result['model_acknowledgement'], answer)
+            self.assertEqual(result['status'], 'ok')
+            self.assertEqual(result['segments'], segments if target == 'response' else [])
+            self.assertEqual(result['gateway_requests'], 2)
 
     def test_unlimited_app_mode_and_disabled_mode_do_not_repurpose_legacy_zero(self):
         enabled = Settings('fake', 'synthetic', None, enabled=True)
@@ -169,7 +183,9 @@ class AITests(PackageCase):
         result = ai.run(self.load(), "비교해줘", {})
         self.assertEqual(result["status"], "partial")
         self.assertEqual(len(result["results"]), 1)
-        self.assertIsNone(result["model_acknowledgement"])
+        self.assertEqual(result['explanation_source'], 'local_results')
+        self.assertEqual(result['explanation_error'], 'gateway_connection_or_json_error')
+        self.assertTrue(result['model_acknowledgement'])
         self.assertEqual(result["gateway_requests"], 2)
 
     def test_bad_provider_status_and_json_are_not_executed(self):

@@ -38,9 +38,10 @@ export class Dictation {
   private worklet: AudioWorkletNode | null = null
   private socket: WebSocket | null = null
   private timer: ReturnType<typeof setTimeout> | undefined
+  private silenceMs: number
 
-  constructor(update: (state: DictationState) => void, commit: (text: string) => void) {
-    this.update = update; this.commit = commit
+  constructor(update: (state: DictationState) => void, commit: (text: string) => void, silenceMs = 0) {
+    this.update = update; this.commit = commit; this.silenceMs = silenceMs
   }
   private set(patch: Partial<DictationState>) { this.state = { ...this.state, ...patch }; this.update(this.state) }
   private deadline(ms: number, message: string) {
@@ -110,11 +111,20 @@ export class Dictation {
       const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/stt/stream`)
       this.socket = socket
       const transcript = new Transcript()
+      let speechSamples = 0, silentSamples = 0
       this.deadline(70000, '로컬 STT 모델 준비 시간이 지났습니다. 로컬 앱 상태를 확인해 주세요.')
       worklet.port.onmessage = event => {
         if (this.state.phase !== 'listening' || socket.readyState !== 1) return
         if (socket.bufferedAmount > 320000) { this.fail('음성 전송이 지연돼 마이크를 껐습니다. 서버 상태를 확인해 주세요.'); return }
         socket.send(event.data)
+        if (this.silenceMs) {
+          const pcm = new Int16Array(event.data)
+          let power = 0
+          for (const sample of pcm) power += (sample / 32768) ** 2
+          if (Math.sqrt(power / Math.max(1, pcm.length)) > 0.012) { speechSamples += pcm.length; silentSamples = 0 }
+          else if (speechSamples >= 1600) silentSamples += pcm.length
+          if (silentSamples >= this.silenceMs * 16) this.stop()
+        }
       }
       socket.onerror = () => this.fail('로컬 STT 연결에 실패했습니다. 로컬 앱과 프록시를 확인해 주세요.')
       socket.onclose = () => this.fail('로컬 STT 연결이 끊겼습니다. 확정된 초안은 유지됩니다.')

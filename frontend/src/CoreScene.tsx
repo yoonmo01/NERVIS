@@ -26,14 +26,16 @@ function Core({ level, reduced, state, dense }: { level: RefObject<number>; redu
   }), [state])
   useFrame(({ pointer }, delta) => {
     if (!shell.current || !inner.current || !bands.current) return
-    envelope.current += ((reduced ? 0 : level.current) - envelope.current) * Math.min(delta * 12, 1)
+    const levelTarget = reduced ? 0 : level.current
+    envelope.current += (levelTarget - envelope.current) * Math.min(delta * (levelTarget > envelope.current ? 24 : 6), 1)
     rotationTime.current += reduced ? 0 : delta * (state === 'processing' ? 1.6 : state === 'analyzing' ? 1.25 : state === 'error' ? .4 : 1)
     const motion = coreMotion(rotationTime.current, envelope.current, reduced, state)
     const scale = shell.current.scale.x + (motion.scale - shell.current.scale.x) * Math.min(delta * 9, 1)
     shell.current.scale.setScalar(scale)
     shell.current.rotation.set(0.25 + (reduced ? 0 : pointer.y * 0.03), motion.shellY, 0.12)
     inner.current.rotation.set(0.7, motion.innerY, 0.3)
-    bands.current.rotation.set(0.5, 0.35, motion.bandZ)
+    inner.current.scale.setScalar(motion.innerScale)
+    bands.current.rotation.set(0.5 + motion.bandTilt, 0.35 - motion.bandTilt * .5, motion.bandZ)
     for (const group of [inner.current, bands.current]) group.traverse(object => {
       if ('material' in object) {
         const material = object.material as MeshBasicMaterial
@@ -44,7 +46,7 @@ function Core({ level, reduced, state, dense }: { level: RefObject<number>; redu
     if (panels.current) { panels.current.opacity = motion.panels; panels.current.color.lerp(tones.panels, blend) }
     if (outline.current) outline.current.color.lerp(tones.outline, blend)
     if (glow.current) { glow.current.opacity = Math.min(1, motion.glow); glow.current.color.lerp(color, reduced ? 1 : Math.min(delta * 4, 1)) }
-    if (dust.current) { dust.current.opacity = motion.dust; dust.current.color.lerp(tones.dust, blend) }
+    if (dust.current) { dust.current.opacity = motion.dust; dust.current.size = motion.dustSize; dust.current.color.lerp(tones.dust, blend) }
   })
   return <group ref={shell}>
     <mesh>

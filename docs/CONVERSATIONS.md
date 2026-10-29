@@ -53,3 +53,23 @@ The New conversation button now clears local selection/draft/view without POST /
 Verified12 focused conversation tests and frontend build. Actual browser clicked New conversation three times; DB count remained10, list showed only the existing ten-message session. No model request or schema migration.
 
 2026-10-24 task write phase: typed state.planner pending actions now connected, with shared transaction connection and AIError rollback before failed-turn recording. Task cancellation/selection/missing-field writes follow NATURAL_LANGUAGE_TASKS.md. Older pending-action-not-implemented notes are previous checkpoints.
+# 2026-10-29 실시간 결과 전달·대기·등록 전 계획 보완 (미검증)
+
+사용자 로그에서 SSE json.dumps가 datetime.time 객체를 직렬화하지 못해 스트림을 종료하는 오류를 확인했다.
+기존 일반 JSON 응답과 달리 수동 SSE 경계에 FastAPI jsonable_encoder 처리가 빠져 있었다.
+encode_chat_event에서 날짜/시각/UUID/Decimal을 JSON 호환값으로 변환한 뒤 엄격하게 인코딩한다.
+직렬화가 여전히 실패하면 스트림을 예외로 끊는 대신 result_serialization_failed 오류 이벤트를 전달한다.
+저장은 이미 완료됐을 수 있음을 안내하며 재실행하지 않는다. 200 OK는 스트림 시작이지 최종 작업 성공이 아니다.
+
+프런트 전체 응답 대기는 70초에서 180초, Gateway 응답 읽기 대기는 요청당 30초에서 60초로 늘렸다.
+완성된 결과를 받은 뒤 전송 연결 취소의 완료를 기다리느라 응답 반환이 지연되지 않도록 스트림 정리를 분리했다.
+TTS 대기와 별개이며 자동 재시도·추가 모델 호출은 없다. 요청 ID 중복 방지와 연결 중단 후 서버 트랜잭션
+마무리 정책은 유지한다. 기존 잘못된 tool 인자 오류도 일반 실패 문구 대신 구체적인 안내로 표시한다.
+
+사용자가 '등록하기 전에 먼저 설명'을 요청했는데도 기존 수업 도구가 saved를 반환한 사례도 확인했다.
+이 명시적 표현은 서버에서 course_preview로 분기해 저장/등록 초안 상태 변경 없이 계획만 반환한다.
+이후 명시적 등록 승인을 받아 기존 apply 흐름을 사용하며 학기/기간과 정확한 표기를 확인한다.
+기존에 저장된 수업은 소급 삭제/재등록하지 않았다. 대화 기록은 기존 규칙대로 저장한다.
+
+이번 변경은 코드와 합성 테스트 내용만 수정했다. 실제 수업/할 일 변경·외부 API·테스트·빌드·커밋은
+실행하지 않았으며, 백엔드 재시작·브라우저 새로고침 후 사용자 확인이 필요하다.

@@ -3,6 +3,7 @@ export interface Weather {
   source: string; supported_locations: string[];
   current: null | { observed_at: string; temperature_c: number; humidity_pct: number | null; precipitation: string | null };
   hourly: { at: string; temperature_c: number | null; rain_probability_pct: number | null; sky: string | null }[];
+  daily?: { low_c: number | null; high_c: number | null; basis?: 'forecast'; low_issued_at?: string | null; high_issued_at?: string | null };
 }
 
 export function weatherMessage(status: string) {

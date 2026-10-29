@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react'
 import Markdown from 'react-markdown'
+import { answerMarkdown } from './answerMarkdown.ts'
 import type { Region } from './api.ts'
 import { regionLabel } from './api.ts'
 import { displayColor } from './brainVisual.ts'
@@ -126,24 +127,26 @@ export function CalculationResults({ reply, regions, locked, onSelect }: { reply
   return <section className="calculation-results" aria-label="계산 결과">{reply.results.length > 1 && <label className="calculation-picker">계산 선택<select value={selected?.result_id ?? ''} onChange={e => setSelectedId(e.target.value)}>{reply.results.map((result, index) => <option key={result.result_id} value={result.result_id}>{index+1}. {titles[result.tool]}</option>)}</select></label>}{selected ? <Result key={selected.result_id} result={selected} regions={regions} locked={locked} onSelect={onSelect} /> : <p>계산 결과가 없습니다.</p>}</section>
 }
 
-export default function ConversationPanel({ phase, command, reply, error, regions, locked, onSelect, onClose, docked = false }: {
+export default function ConversationPanel({ phase, command, reply, error, regions, locked, onSelect, onClose, docked = false, activeTarget, progress }: {
   phase: CommandPhase; command: string; reply: AIReply | null; error: string; regions: Region[]; locked: boolean;
-  onSelect: (selection: StageSelection) => void; onClose: () => void; docked?: boolean;
+  onSelect: (selection: StageSelection) => void; onClose: () => void; docked?: boolean; activeTarget?: string | null; progress?: string;
 }) {
   if (phase === 'idle') return null
   const briefing = reply?.results.some(r => r.tool === 'get_daily_briefing' || r.tool === 'get_weather')
   const taskResult = reply?.results.find(result => isTaskTool(result.tool))
+  const taskTarget = `r${taskResult && reply ? reply.results.indexOf(taskResult) : -1}.tasks`
   const analysisReply = reply ? { ...reply, results: reply.results.filter(r => r.tool !== 'get_daily_briefing' && r.tool !== 'get_weather' && !isTaskTool(r.tool)) } : null
   return <aside className="conversation-result" aria-label="NERVIS 요청과 결과" aria-busy={locked}>
     <div className="conversation-result-heading"><span>NERVIS</span>{!docked && <button disabled={locked} onClick={onClose} aria-label="대화 결과 닫기">×</button>}</div>
     <p className="submitted-command">{command}</p>
-    <p role={error ? 'alert' : 'status'} className={`request-state${error ? ' has-error' : ''}`}>{error || (phase === 'requesting' ? '요청하신 내용을 확인하고 있어요.' : phase === 'applying' ? '결과를 화면에 정리하고 있어요.' : reply?.status === 'partial' ? briefing ? '조회 결과는 받았지만 설명을 마무리하지 못했어요.' : '계산은 완료했지만 설명을 마무리하지 못했어요. 계산 결과를 확인해 주세요.' : taskResult ? taskResult.data.status === 'needs_input' ? '추가 확인이 필요해요.' : taskResult.data.status === 'saved' ? taskResult.tool === 'register_courses' ? '수업을 등록했어요.' : '할 일에 반영했어요.' : taskResult.tool === 'register_courses' ? '수업 등록 요청을 확인했어요.' : '할 일 요청을 확인했어요.' : reply?.results.length ? briefing ? '브리핑이 준비됐어요.' : '분석 결과가 준비됐어요.' : '답변이 준비됐어요.')}</p>
-    {reply?.model_acknowledgement && phase !== 'requesting' && <div className="model-acknowledgement"><Markdown skipHtml disallowedElements={['img', 'a']} unwrapDisallowed>{reply.model_acknowledgement}</Markdown></div>}
-    {taskResult && taskResult.tool !== 'register_courses' && Array.isArray(taskResult.data.items) && taskResult.data.items.length > 0 && <ul className="task-receipt-list">{(taskResult.data.items as unknown as TaskRecord[]).map((item, index) => <li key={`${item.id}-${index}`}>
+    <p role={error ? 'alert' : 'status'} className={`request-state${error ? ' has-error' : ''}`}>{error || (phase === 'requesting' ? progress || '요청하신 내용을 확인하고 있어요.' : phase === 'applying' ? '결과를 화면에 정리하고 있어요.' : reply?.status === 'partial' ? reply.explanation_source === 'local_results' ? '실제 결과를 바탕으로 기본 안내를 준비했어요.' : (briefing || taskResult) ? '조회 결과는 받았지만 설명을 마무리하지 못했어요.' : '계산은 완료했지만 설명을 마무리하지 못했어요. 계산 결과를 확인해 주세요.' : taskResult ? taskResult.data.status === 'needs_input' ? '추가 확인이 필요해요.' : taskResult.data.status === 'saved' ? taskResult.tool === 'register_courses' ? '수업을 등록했어요.' : '할 일에 반영했어요.' : taskResult.tool === 'register_courses' ? '수업 등록 요청을 확인했어요.' : '할 일 요청을 확인했어요.' : reply?.results.length ? briefing ? '브리핑이 준비됐어요.' : '분석 결과가 준비됐어요.' : '답변이 준비됐어요.')}</p>
+    {reply?.model_acknowledgement && phase !== 'requesting' && <div className="model-acknowledgement"><Markdown skipHtml disallowedElements={['img', 'a']} unwrapDisallowed>{answerMarkdown(reply.model_acknowledgement)}</Markdown></div>}
+    {taskResult && taskResult.tool !== 'register_courses' && Array.isArray(taskResult.data.items) && taskResult.data.items.length > 0 && <ul className={`task-receipt-list${activeTarget === taskTarget ? ' speech-highlight' : ''}`}>{(taskResult.data.items as unknown as TaskRecord[]).map((item, index) => <li key={`${item.id}-${index}`} className={activeTarget === `${taskTarget}.${index}` ? 'speech-highlight' : undefined}>
       <strong>{item.title}</strong><small>{item.operation ? `${item.operation} · ` : ''}{({ todo: '할 예정', in_progress: '진행 중', done: '완료' }[item.status])}
         {item.planned_on ? ` · 예정 ${item.planned_on}` : ''}{item.due_on ? ` · 마감 ${item.due_on}${item.due_time ? ` ${item.due_time.slice(0,5)}` : ''}` : ''}</small>
     </li>)}</ul>}
-    {reply?.warning && <p className="result-warning" role="status">{aiErrorMessage(reply.warning)}</p>}
+    {reply?.warning && <p className="result-warning" role="status">{reply.explanation_source === 'local_results' ? 'AI 설명 대신 실제 조회·분석 결과로 만든 기본 안내를 제공합니다.' : aiErrorMessage(reply.warning)}</p>}
+    {reply?.explanation_error && <details className="result-warning"><summary>설명 오류 정보</summary><p>진단 코드: {reply.explanation_error}</p><p>{reply.warning ? aiErrorMessage(reply.warning) : 'AI 설명을 준비하지 못했습니다.'}</p></details>}
     {!docked && analysisReply && analysisReply.results.length > 0 && <details className="local-results" open={!analysisReply.model_acknowledgement || analysisReply.results.some(r => ['find_similar_pairs', 'get_dataset_summary', 'get_timeseries', 'analyze_regions_detailed'].includes(r.tool))}><summary>계산 결과</summary><CalculationResults reply={analysisReply} regions={regions} locked={locked} onSelect={onSelect} /></details>}
   </aside>
 }

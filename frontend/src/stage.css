@@ -211,6 +211,8 @@
 .state-error { --state-color:#ff626e; }
 .state-paused { --state-color:#7193af; }
 .state-standby,.state-preview { --state-color:#68c9ff; }
+.state-speaking { --state-color:#c5a3ff; }
+.connection-chip.state-speaking { border-color:#b28ae080; background:#281b3d80; }
 .connection-chip[class*=state-],.core-caption[class*=state-] { color:var(--state-color); }
 .connection-chip .live-dot,.core-caption .live-dot { background:var(--state-color); box-shadow:0 0 8px var(--state-color); }
 .core-stage .orbit-guide { border-color:color-mix(in srgb,var(--state-color) 30%,transparent); }

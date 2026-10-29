@@ -76,17 +76,19 @@ export function makeCoreGeometry(dense = false) {
 }
 
 export type CoreState = 'standby' | 'processing' | 'analyzing' | 'error' | 'paused' | 'preview' | 'speaking'
-export const coreStateColors: Record<CoreState, string> = { standby: '#68c9ff', processing: '#ff6a00', analyzing: '#61f0de', error: '#ff626e', paused: '#7193af', preview: '#68c9ff', speaking: '#68c9ff' }
+export const coreStateColors: Record<CoreState, string> = { standby: '#68c9ff', processing: '#ff6a00', analyzing: '#61f0de', error: '#ff626e', paused: '#7193af', preview: '#68c9ff', speaking: '#c5a3ff' }
 
 export function coreMotion(elapsed: number, level: number, reduced: boolean, state: CoreState = 'standby') {
   const t = reduced || !Number.isFinite(elapsed) ? 0 : elapsed
   const amplitude = reduced || !Number.isFinite(level) ? 0 : Math.max(0, Math.min(1, level))
+  const voice = state === 'speaking' ? amplitude : 0
   const pulse = reduced ? 0 : state === 'error' ? (1 + Math.sin(t * 1.8)) * .04 : state === 'processing' ? (1 + Math.sin(t * 3)) * .025 : 0
   return {
     shellY: 0.3 + t * 0.18, innerY: 0.2 - t * 0.34, bandZ: 0.4 + t * 0.24,
-    scale: 1 + amplitude * 0.065 + Math.sin(t * 1.1) * 0.008 + pulse,
-    glow: 0.65 + amplitude * 0.85 + pulse * 3, panels: 0.16 + amplitude * 0.16,
-    dust: 0.62 + amplitude * 0.3,
+    scale: 1 + amplitude * 0.065 + voice * .055 + Math.sin(t * 1.1) * 0.008 + pulse,
+    glow: 0.48 + amplitude * 0.5 + pulse * 3, panels: 0.16 + amplitude * 0.16,
+    dust: 0.52 + amplitude * 0.4,
+    bandTilt: voice * .22, innerScale: 1 + voice * .2, dustSize: .018 + voice * .014,
   }
 }
 

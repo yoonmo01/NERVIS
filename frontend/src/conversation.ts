@@ -3,11 +3,12 @@ import type { StageSelection } from './stageData.ts'
 import type { CoreState } from './model.ts'
 import { checkBriefing } from './briefing.ts'
 import { checkTaskResult, isTaskTool } from './tasks.ts'
+import type { SpeechSegment } from './presentation.ts'
 
 export type CommandPhase = 'idle' | 'requesting' | 'applying' | 'complete' | 'error'
 export interface AIStatus { enabled: boolean; model: string; remaining_process_requests: number | null; busy: boolean }
 export interface LocalResult { result_id: string; tool: string; parameters: Record<string, unknown>; data: Record<string, unknown> }
-export interface AIReply { status: 'ok' | 'partial'; model_acknowledgement: string | null; results: LocalResult[]; warning: string | null }
+export interface AIReply { status: 'ok' | 'partial'; model_acknowledgement: string | null; results: LocalResult[]; warning: string | null; segments?: SpeechSegment[]; explanation_source?: 'model' | 'local_results' | 'local_receipt'; explanation_error?: string | null }
 export interface ViewContext { selected_region_ids: number[]; start: number; end: number }
 export interface ViewRequest { id: number; selection: StageSelection }
 
@@ -94,6 +95,9 @@ export function viewSelection(reply: AIReply): StageSelection | null {
 
 export function aiErrorMessage(code: string): string {
   const messages: Record<string, string> = {
+    invalid_tool_arguments: 'AI가 만든 작업 인자의 형식을 확인하지 못했습니다. 도구는 실행하지 않았습니다.',
+    result_serialization_failed: '서버 결과를 화면으로 전달하지 못했습니다. 저장은 완료됐을 수 있으니 대화 기록을 확인해 주세요. 자동 재전송하지 않습니다.',
+    request_failed: '서버 처리 중 오류가 발생했습니다. 서버 기록을 확인해 주세요. 자동 재전송하지 않습니다.',
     ai_budget_exhausted_or_disabled: 'AI 호출이 꺼져 있거나 승인된 호출 예산을 모두 사용했습니다.',
     planner_session_required: '할 일 변경은 대화 세션에서 요청해 주세요.',
     task_target_no_longer_exists: '대상 할 일이 없어졌습니다. 이름을 다시 알려 주세요.',
@@ -106,7 +110,7 @@ export function aiErrorMessage(code: string): string {
     gateway_http_401: 'Gateway 인증을 확인해 주세요.', gateway_http_403: '해당 모델의 사용 권한을 확인해 주세요.',
     gateway_http_402: 'Gateway 크레딧을 확인해 주세요.', gateway_http_429: 'Gateway 사용 제한에 도달했습니다. 자동 재시도하지 않습니다.',
     gateway_connection_or_json_error: 'Gateway 응답을 확인하지 못했습니다. 이미 과금됐을 수 있어 자동 재전송하지 않습니다.',
-    invalid_grounded_explanation: '계산은 완료했지만 설명 응답의 형식이나 근거를 확인하지 못했습니다. 계산 결과를 확인해 주세요.',
+    invalid_grounded_explanation: 'AI 설명의 응답 형식이나 근거를 확인하지 못했습니다. 실제 조회·분석 결과는 유지됩니다.',
   }
   return messages[code] ?? '요청을 완료하지 못했습니다. 자동 재전송하지 않았습니다.'
 }

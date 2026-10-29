@@ -18,6 +18,10 @@ import ConversationPanel, { CalculationResults } from './ConversationPanel.tsx'
 import { checkedReply, viewSelection, pending, aiErrorMessage, interfaceState } from './conversation.ts'
 import type { AIStatus, AIReply, CommandPhase, ViewContext, ViewRequest } from './conversation.ts'
 import type { StageSelection } from './stageData.ts'
+import { previewSegments } from './presentation.ts'
+import { streamChat, workMessage } from './chatStream.ts'
+import type { RequestOwner } from './chatStream.ts'
+import { useActivation } from './useActivation.ts'
 
 function useReducedMotion() {
   const [reduced, setReduced] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches)
@@ -32,7 +36,16 @@ function useReducedMotion() {
 
 export default function App() {
   const reduced = useReducedMotion()
+  const [pageVisible, setPageVisible] = useState(() => !document.hidden)
   const conversation = useConversation()
+  const speech = useSpeech()
+  const ownerRef = useRef<RequestOwner | null>(null)
+  const [owner, setOwner] = useState<RequestOwner | null>(null)
+  const [workStatus, setWorkStatus] = useState('')
+  const stageOwner = useRef<RequestOwner | null>(null)
+  const stagingId = useRef<number | null>(null)
+  const [preparedAnalysis, setPreparedAnalysis] = useState<{ request: ViewRequest; ready: boolean } | null>(null)
+  const [awaitingPlayback, setAwaitingPlayback] = useState<{ owner: RequestOwner; view: 'home' | 'analysis' | null; shown: boolean; started?: boolean } | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [stage, setStage] = useState<IntroStage>(() => introStage(0, reduced))
   const [replay, setReplay] = useState(0)
@@ -42,11 +55,13 @@ export default function App() {
   const [panel, setPanel] = useState<ComposerPanel>(null)
   const [draft, setDraft] = useState('')
   const [voiceActive, setVoiceActive] = useState(false)
+  const [introStarted, setIntroStarted] = useState(false)
+  const [voiceTrigger, setVoiceTrigger] = useState(0)
   const [briefingPreview, setBriefingPreview] = useState(false)
-  const [briefingCards, setBriefingCards] = useState<{ id: number; value: Briefing } | null>(null)
+  const [briefingCards, setBriefingCards] = useState<{ id: number; value: Briefing; owner: RequestOwner } | null>(null)
   const cardsFlight = useRef(false)
-  const onCardsReady = useCallback(() => {
-    if (!cardsFlight.current) return
+  const onCardsReady = useCallback((requestId: string) => {
+    if (!cardsFlight.current || ownerRef.current?.request_id !== requestId) return
     cardsFlight.current = false; flight.current = false; setPhase('complete')
   }, [])
   const [connection, setConnection] = useState<'loading' | 'ready' | 'error'>('loading')
@@ -82,8 +97,23 @@ export default function App() {
   useEffect(() => {
     mounted.current = true; void refreshAI()
     const focus = () => { void refreshAI() }
+    const leave = () => {
+      if (controller.current) {
+        controller.current.abort()
+        setRequestError('화면을 벗어나 응답 연결을 중지했습니다. 서버 처리는 계속될 수 있으니 대화 기록을 확인해 주세요.')
+        setPhase('error')
+      } else setPhase(previous => previous === 'applying' ? 'complete' : previous)
+      ownerRef.current = null; setOwner(null); speech.claim(null); setWorkStatus('')
+      expectedStage.current = null; cardsFlight.current = false; flight.current = false
+      stagingId.current = null; setPreparedAnalysis(null); setAwaitingPlayback(null)
+    }
+    const visibility = () => setPageVisible(!document.hidden)
     window.addEventListener('focus', focus)
-    return () => { mounted.current = false; controller.current?.abort(); window.removeEventListener('focus', focus) }
+    window.addEventListener('pagehide', leave); document.addEventListener('visibilitychange', visibility)
+    return () => {
+      mounted.current = false; ownerRef.current = null; controller.current?.abort()
+      window.removeEventListener('focus', focus); window.removeEventListener('pagehide', leave); document.removeEventListener('visibilitychange', visibility)
+    }
   }, [refreshAI])
   useEffect(() => {
     if (!aiStatus?.busy) return
@@ -92,12 +122,17 @@ export default function App() {
   }, [aiStatus?.busy, refreshAI])
   const onContext = useCallback((value: ViewContext) => { context.current = value }, [])
   const onApplied = useCallback((id: number, error?: string) => {
-    if (expectedStage.current !== id) return
-    expectedStage.current = error ? id : null; flight.current = false
+    if (expectedStage.current !== id || (stageOwner.current && stageOwner.current.request_id !== ownerRef.current?.request_id)) return
+    if (!error && stagingId.current === id) {
+      setPreparedAnalysis(previous => previous?.request.id === id ? { ...previous, ready: true } : previous)
+      return
+    }
+    if (error) { stagingId.current = null; setPreparedAnalysis(null); setAwaitingPlayback(null) }
+    expectedStage.current = null; flight.current = false
     setRequestError(error ? `계산 결과는 받았지만 화면 적용에 실패했습니다: ${error}` : '')
     if (error) {
       speech.stop()
-      void speech.play(`계산 결과는 받았지만 화면 적용에 실패했습니다: ${error}`)
+      if (ownerRef.current) void speech.play(`계산 결과는 받았지만 화면 적용에 실패했습니다: ${error}`, [], ownerRef.current)
     }
     setPhase(error ? 'error' : 'complete')
   }, [])
@@ -110,56 +145,86 @@ export default function App() {
   const applySelection = (selection: StageSelection) => {
     const id = ++sequence.current
     expectedStage.current = id; flight.current = true
+    stageOwner.current = ownerRef.current
     setStageRequest({ id, selection }); setExplored(true); setView('analysis'); setPanel(null); setPhase('applying')
   }
   const send = async () => {
     if (flight.current || locked || voiceActive || (!briefingPreview && (!aiStatus?.enabled || aiStatus.busy)) || !draft.trim() || !data) return
     flight.current = true; expectedStage.current = null
+    let requestOwner: RequestOwner = { request_id: crypto.randomUUID(), session_id: conversation.value?.id ?? crypto.randomUUID() }
+    ownerRef.current = requestOwner; setOwner(requestOwner); speech.claim(requestOwner)
     speech.prepare()
     const submitted = draft.trim(), current = new AbortController()
     controller.current = current
+    const ownsRequest = () => mounted.current && ownerRef.current?.request_id === requestOwner.request_id
+    let receipt = Promise.resolve(), acknowledged = false
+    const acknowledge = () => {
+      if (acknowledged || !ownsRequest()) return
+      acknowledged = true; receipt = activation.acknowledge()
+    }
+    setWorkStatus(briefingPreview ? '더미 미리보기 결과를 불러오고 있습니다.' : '요청을 연결하고 있습니다.')
     setCommand(submitted); setReply(null); setRequestError(''); setPhase('requesting'); setResultOpen(true); setAnalysisTab('response')
     setBriefingCards(null); cardsFlight.current = false
-    const timeout = setTimeout(() => current.abort(), 70000)
+    const timeout = setTimeout(() => current.abort(), 180000)
     try {
       let packet: AIReply
       if (briefingPreview) {
         const kind = previewKind(submitted)
         if (!kind) throw new Error('더미 미리보기에서는 “오늘 할 일 알려줘” 또는 “오늘 날씨 알려줘”를 입력해 주세요. 분석은 미리보기를 끄고 요청하세요.')
         const value = await api<Briefing>('/api/briefing/preview', current.signal)
+        acknowledge()
         packet = { status: 'ok', warning: null, model_acknowledgement: kind === 'weather' ? '날씨 카드의 더미 미리보기입니다.' : '더미 브리핑 미리보기입니다. 날씨, 오늘 수업과 해야 할 일을 순서대로 정리했습니다.',
           results: [{ result_id: `preview-${++sequence.current}`, tool: kind === 'briefing' ? 'get_daily_briefing' : 'get_weather', parameters: {},
             data: kind === 'briefing' ? value as unknown as Record<string, unknown> : { ...value.weather, kind: 'weather', preview: true } }] }
+        packet.segments = previewSegments(value, kind === 'weather')
+        packet.model_acknowledgement = packet.segments.map(s => s.text).join(' ')
       } else {
         const sessionId = await conversation.ensure()
-        packet = await api<AIReply>('/api/ai/chat', current.signal, { command: submitted, context: context.current, session_id: sessionId, request_id: crypto.randomUUID() })
+        if (!ownsRequest() || current.signal.aborted) return
+        requestOwner = { ...requestOwner, session_id: sessionId }
+        ownerRef.current = requestOwner; setOwner(requestOwner); speech.claim(requestOwner)
+        packet = await streamChat({ command: submitted, context: context.current, ...requestOwner }, current.signal, event => {
+          if (ownsRequest() && !current.signal.aborted && event.session_id === requestOwner.session_id) {
+            if (event.type === 'request.started') acknowledge()
+            setWorkStatus(workMessage(event))
+          }
+        })
       }
+      await receipt
       const response = checkedReply(packet, data.summary.dataset_version)
-      if (!mounted.current) return
+      if (!ownsRequest() || current.signal.aborted) return
       const selection = viewSelection(response)
       const briefing = briefingFromResults(response.results)
       setReply(response); setDraft('')
-      void speech.play(response.model_acknowledgement?.trim() || '요청 결과를 화면에서 확인해 주세요.')
-      if (selection) applySelection(selection)
-      else if (response.results.some(result => isTaskTool(result.tool))) { setView('home'); setPanel(null); setPhase('complete'); flight.current = false }
-      else if (briefing) {
-        setBriefingCards({ id: ++sequence.current, value: briefing }); cardsFlight.current = true
-        setView('home'); setPanel(null); setPhase('applying')
+      setWorkStatus('결과를 받았습니다. 화면과 음성을 준비하고 있습니다.')
+      setPanel(null); setPhase('applying')
+      setAwaitingPlayback({ owner: requestOwner, view: selection ? 'analysis' : briefing || response.results.some(result => isTaskTool(result.tool)) ? 'home' : null, shown: false })
+      void speech.play(response.model_acknowledgement?.trim() || '요청 결과를 화면에서 확인해 주세요.', [], requestOwner, true)
+      if (selection) {
+        const request = { id: ++sequence.current, selection }
+        expectedStage.current = request.id; stagingId.current = request.id; stageOwner.current = requestOwner
+        setPreparedAnalysis({ request, ready: false })
       }
-      else { flight.current = false; setPhase('complete') }
+      else if (briefing) {
+        setBriefingCards({ id: ++sequence.current, value: briefing, owner: requestOwner }); cardsFlight.current = true
+      }
     } catch (error) {
-      if (!mounted.current) return
+      await receipt
+      if (!ownsRequest()) return
       const message = error instanceof ApiError ? aiErrorMessage(error.code) : error instanceof DOMException && error.name === 'AbortError'
-        ? '응답 대기 시간이 지났습니다. 서버 처리가 계속될 수 있어 자동 재전송하지 않습니다.'
+        ? '응답을 3분 안에 받지 못했습니다. 서버 처리가 계속될 수 있어 자동 재전송하지 않습니다.'
         : error instanceof Error ? error.message : '요청을 완료하지 못했습니다.'
-      setRequestError(message); void speech.play(message)
+      setRequestError(message); setWorkStatus(''); void speech.play(message, [], requestOwner)
       setPhase('error'); flight.current = false
     } finally {
-      clearTimeout(timeout); controller.current = null
-      if (mounted.current) { void refreshAI(); if (!briefingPreview) { void conversation.reload(); if (historyOpen) void conversation.loadSessions() } }
+      clearTimeout(timeout)
+      if (controller.current === current) controller.current = null
+      if (ownsRequest()) { void refreshAI(); if (!briefingPreview) { void conversation.reload(); if (historyOpen) void conversation.loadSessions() } }
     }
   }
   const resetConversationView = () => {
+    stagingId.current = null; setPreparedAnalysis(null); setAwaitingPlayback(null)
+    ownerRef.current = null; setOwner(null); speech.claim(null); setWorkStatus(''); expectedStage.current = null; cardsFlight.current = false
     setReply(null); setCommand(''); setDraft(''); setPhase('idle'); setRequestError('')
     setBriefingCards(null); setStageRequest(null); setExplored(false); setView('home'); setPanel(null)
   }
@@ -177,14 +242,47 @@ export default function App() {
     resetConversationView()
   }
   const audio = useAudioPreview()
-  const speech = useSpeech()
+  const stopResponse = () => {
+    stagingId.current = null; setPreparedAnalysis(null); setAwaitingPlayback(null)
+    speech.claim(null); ownerRef.current = null; setOwner(null); setWorkStatus('')
+    expectedStage.current = null; cardsFlight.current = false; flight.current = false
+    setPhase(previous => previous === 'applying' ? 'complete' : previous)
+  }
+  const speechOwned = !!owner && speech.owner?.request_id === owner.request_id && speech.owner?.session_id === owner.session_id
+  const speechTarget = speechOwned ? speech.target : null
 
   useEffect(() => {
+    if (!awaitingPlayback || ownerRef.current?.request_id !== awaitingPlayback.owner.request_id || !speechOwned) return
+    if (speech.phase !== 'ready' && speech.phase !== 'error' && !awaitingPlayback.started) return
+    if (awaitingPlayback.view === 'analysis' && !awaitingPlayback.shown && !preparedAnalysis?.ready) {
+      // A hidden tab may suspend WebGL frames. Audio must not wait for those frames.
+      if (!pageVisible && speech.phase === 'ready' && !awaitingPlayback.started) {
+        void speech.start(awaitingPlayback.owner)
+        setAwaitingPlayback({ ...awaitingPlayback, started: true })
+      }
+      return
+    }
+    if (!awaitingPlayback.shown) {
+      if (awaitingPlayback.view === 'analysis' && preparedAnalysis) {
+        setStageRequest(preparedAnalysis.request); setExplored(true); setPreparedAnalysis(null); stagingId.current = null
+      }
+      if (awaitingPlayback.view) setView(awaitingPlayback.view)
+      setAwaitingPlayback({ ...awaitingPlayback, shown: true })
+      return
+    }
+    // Start only after the prepared screen has been committed to the DOM.
+    if (speech.phase === 'ready' && !awaitingPlayback.started) void speech.start(awaitingPlayback.owner)
+    setAwaitingPlayback(null); expectedStage.current = null; flight.current = false
+    cardsFlight.current = false; setWorkStatus(''); setPhase('complete')
+  }, [awaitingPlayback, preparedAnalysis, speechOwned, speech.phase, speech.start, pageVisible])
+
+  useEffect(() => {
+    if (!introStarted) { setStage('title'); return }
     setStage(introStage(0, reduced || skipped))
     if (reduced || skipped) return
     const timers = Object.values(INTRO).map(time => setTimeout(() => setStage(introStage(time)), time))
     return () => timers.forEach(clearTimeout)
-  }, [reduced, replay, skipped])
+  }, [reduced, replay, skipped, introStarted])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -210,17 +308,33 @@ export default function App() {
 
   const explore = () => { audio.stop(); setExplored(true); setPanel(null); setView('analysis') }
   const home = () => { audio.stop(); setPanel(null); setView('home') }
-  const restart = () => { home(); setSkipped(false); setReplay(v => v + 1) }
-  const ready = stage === 'ready'
-  const locked = !ready || audio.active || speech.active || pending(phase) || (view === 'analysis' && analysisBusy)
+  const restart = () => { activation.stop(); home(); setIntroStarted(false); setSkipped(false); setReplay(v => v + 1) }
+  const ready = introStarted && stage === 'ready'
+  const baseLocked = !ready || audio.active || speech.active || pending(phase) || (view === 'analysis' && analysisBusy)
+  const activation = useActivation(introStarted, !baseLocked && !voiceActive && panel === null && !historyOpen,
+    () => { setSkipped(false); setIntroStarted(true) },
+    () => { setPanel('voice'); setVoiceTrigger(value => value + 1) })
+  const locked = baseLocked || activation.greeting
+  useEffect(() => {
+    const shortcut = (event: KeyboardEvent) => {
+      if (event.code !== 'Space' || !event.ctrlKey || !event.shiftKey || event.repeat) return
+      event.preventDefault()
+      if (!introStarted) { activation.stop(); activation.begin(); return }
+      if (!locked) { activation.stop(); setPanel('voice'); setVoiceTrigger(value => value + 1) }
+    }
+    window.addEventListener('keydown', shortcut)
+    return () => window.removeEventListener('keydown', shortcut)
+  }, [introStarted, locked, activation.stop])
   const canSend = !locked && (briefingPreview || (!conversation.loading && !conversation.error)) && connection === 'ready' && (briefingPreview || (!!aiStatus?.enabled && !aiStatus.busy))
   const inputStatus = !briefingPreview && conversation.loading ? '대화 기록을 불러오는 중입니다.' : !briefingPreview && conversation.error ? conversation.error : briefingPreview ? '더미 미리보기 · “오늘 할 일 알려줘” · AI 호출·DB 저장 없음' : !aiStatus ? 'AI 서버 연결을 확인해 주세요.' : aiStatus.busy ? '이전 요청을 처리 중입니다.' : !aiStatus.enabled ? 'AI가 비활성 상태입니다. 서버 설정을 확인해 주세요.' : ''
-  const corePhase = phase === 'complete' && reply?.status === 'partial' ? 'error' : phase
+  const corePhase = phase === 'complete' && reply?.status === 'partial' && reply.explanation_source !== 'local_results' ? 'error' : phase
   const coreState = speech.active ? speech.phase === 'speaking' ? 'speaking' : 'processing'
     : interfaceState(corePhase !== 'error' && corePhase !== 'requesting' && view === 'analysis' && analysisBusy ? 'applying' : corePhase, connection !== 'error', !!aiStatus?.enabled, !!aiStatus?.busy, audio.active)
   const stateLabels = { standby: 'STANDBY', processing: 'PROCESSING', analyzing: 'ANALYZING', error: 'ERROR', paused: 'PAUSED', preview: 'AUDIO PREVIEW', speaking: 'SPEAKING' }
   const selectResult = (selection: StageSelection) => { if (!flight.current && !locked) { setRequestError(''); applySelection(selection) } }
-  const resultPanel = phase === 'idle' ? null : <ConversationPanel phase={phase} command={command} reply={reply} error={requestError} regions={data?.regions ?? []} locked={locked} docked={view === 'analysis'}
+  const briefingIndex = reply?.results.findIndex(r => r.tool === 'get_daily_briefing') ?? -1
+  const briefingPrefix = `r${briefingIndex >= 0 ? briefingIndex : reply?.results.findIndex(r => r.tool === 'get_weather') ?? 0}`
+  const resultPanel = phase === 'idle' ? null : <ConversationPanel phase={phase} command={command} reply={reply} error={requestError} regions={data?.regions ?? []} locked={locked} docked={view === 'analysis'} activeTarget={speechTarget} progress={workStatus}
     onSelect={selectResult}
     onClose={() => { if (!flight.current) setResultOpen(false) }} />
   const calculationReply = reply ? { ...reply, results: reply.results.filter(r => r.tool !== 'get_daily_briefing' && r.tool !== 'get_weather' && !isTaskTool(r.tool)) } : null
@@ -243,7 +357,13 @@ export default function App() {
     </header>
 
     {(stage === 'title' || stage === 'dock') && <div className="intro-caption"><span>AN INTERFACE TO EXPLORE</span><p>기록 속의 관계를 발견하다</p></div>}
-    {!ready && <button className="skip-intro" onClick={() => setSkipped(true)}>인트로 건너뛰기 <span>↗</span></button>}
+    {!introStarted && <div className="activation-wait" role="region" aria-label="NERVIS 시작 대기">
+      <p>{activation.armed ? '박수 두 번으로 시작하세요' : 'NERVIS 시작 대기'}</p>
+      <small>{activation.armed ? '짝, 짝 · 약 0.2~0.8초 간격' : '시작 준비를 누르고 마이크 권한을 허용해 주세요.'}</small>
+      <button onClick={() => activation.armed ? activation.stop() : void activation.arm()}>{activation.armed ? '대기 중지' : '시작 준비'}</button>
+      <small>Ctrl + Shift + Space로도 시작할 수 있습니다.</small>
+    </div>}
+    {introStarted && !ready && <button className="skip-intro" onClick={() => setSkipped(true)}>인트로 건너뛰기 <span>↗</span></button>}
 
     <div className={`core-stage state-${coreState}`} aria-hidden="true">
       <div className="core-aura" />
@@ -257,31 +377,37 @@ export default function App() {
         <div className={`core-caption state-${coreState}`}><span className="live-dot" />NERVIS / {stateLabels[coreState]}<small>PROCEDURAL CORE · LOCAL RENDER</small></div>
       </section>
 
-      {explored && data && <div className="analysis-container" inert={audio.active || speech.active || pending(phase)} hidden={view !== 'analysis'}>
-        <AnalysisView key={stageRequest?.id ?? 'preview'} request={stageRequest} onApplied={onApplied} onContext={onContext} regions={data.regions} version={data.summary.dataset_version} active={view === 'analysis'} blocked={audio.active || speech.active || phase === 'requesting'} reduced={reduced} onBusyChange={onStageBusy} response={resultPanel} calculations={calculations} tab={analysisTab} onTab={setAnalysisTab} />
-      </div>}
+      {data && [...(explored ? [{ request: stageRequest, preparing: false }] : []), ...(preparedAnalysis ? [{ request: preparedAnalysis.request, preparing: true }] : [])].map(entry =>
+        <div key={entry.request?.id ?? 'preview'} className="analysis-container" style={entry.preparing ? { visibility: 'hidden', pointerEvents: 'none' } : undefined}
+          aria-hidden={entry.preparing || view !== 'analysis'} inert={entry.preparing || audio.active || phase === 'requesting'} hidden={!entry.preparing && view !== 'analysis'}>
+          <AnalysisView request={entry.request} onApplied={onApplied} onContext={onContext} regions={data.regions} version={data.summary.dataset_version}
+            active={entry.preparing || view === 'analysis'} presenting={!entry.preparing && view === 'analysis'} blocked={audio.active || phase === 'requesting'} reduced={reduced}
+            onBusyChange={onStageBusy} response={resultPanel} calculations={calculations} tab={analysisTab} onTab={setAnalysisTab} />
+        </div>)}
     </main>
 
     <div className={`common-interface${ready ? ' is-ready' : ''}`} inert={!ready}>
       {ready && view === 'home' && <label className="briefing-preview-control"><input type="checkbox" aria-label="더미 브리핑 미리보기" checked={briefingPreview} disabled={locked} onChange={e => setBriefingPreview(e.target.checked)} />더미 미리보기</label>}
-      {ready && view === 'home' && briefingCards && <BriefingCards key={briefingCards.id} value={briefingCards.value} reduced={reduced} onReady={onCardsReady} />}
+      {ready && view === 'home' && briefingCards && !awaitingPlayback && <BriefingCards key={briefingCards.id} value={briefingCards.value} reduced={reduced} onReady={() => onCardsReady(briefingCards.owner.request_id)}
+        prefix={briefingPrefix}
+        playback={{ active: speechOwned && briefingCards.owner.request_id === owner?.request_id && speech.active && speech.synchronized === true, target: speechTarget }} />}
       {view === 'home' && resultOpen && resultPanel}
       {view === 'home' && !resultOpen && resultPanel && <button className="result-reopen" onClick={() => setResultOpen(true)}>응답 다시 열기</button>}
       {ready && historyOpen && <ConversationHistory title={conversation.value?.title ?? '대화 기록'} messages={conversation.value?.messages ?? []}
         sessions={conversation.sessions} sessionId={conversation.value?.id} hasMore={conversation.hasMore} loading={conversation.listLoading}
         listError={conversation.listError} locked={locked || voiceActive || conversation.loading} onSelect={id => { void switchConversation(id) }}
         onMore={() => { void conversation.loadSessions(true) }} onRefresh={() => { void conversation.loadSessions() }} onClose={() => setHistoryOpen(false)} />}
-      <Composer onVoiceActive={setVoiceActive} canSend={canSend} status={inputStatus} onSend={() => { void send() }} panel={panel} draft={draft} onDraft={setDraft} closable={true} locked={locked}
-        onToggle={target => setPanel(current => toggleComposer(current, target, view))}
+      <Composer voiceTrigger={voiceTrigger} beforeVoice={() => activation.stop()} onVoiceActive={setVoiceActive} canSend={canSend} status={inputStatus} onSend={() => { void send() }} panel={panel} draft={draft} onDraft={setDraft} closable={true} locked={locked}
+        onToggle={target => { activation.stop(); setPanel(current => toggleComposer(current, target, view)) }}
         onClose={() => setPanel(null)} />
       <footer className="shell-footer">
         <div className="shell-actions"><span>INTERFACE / 02</span>
           <button className="local-view-button" disabled={locked || (view === 'home' && connection !== 'ready')} onClick={view === 'home' ? explore : home}>
             {view === 'home' ? '분석 화면 미리보기 ↗' : '대화 홈으로 ↖'}</button>
         </div>
-        <div className="speech-actions" aria-label="로컬 응답 음성">
-          {speech.active && <button onClick={speech.stop}>음성 중지</button>}
-          <span role="status">{speech.phase === 'preparing' ? '로컬 음성 준비 중' : speech.phase === 'speaking' ? '응답 재생 중' : ''}</span>
+        <div className="speech-actions" aria-label="응답 음성">
+          {speech.active && <button onClick={stopResponse}>음성 중지</button>}
+          <span role="status">{speech.phase === 'preparing' ? '전체 응답 음성 생성 중 · 완료 후 재생합니다.' : speech.phase === 'ready' ? `음성 준비 완료 (${((speech.preparedMs ?? 0) / 1000).toFixed(1)}초) · 화면 준비 대기` : speech.phase === 'speaking' ? '응답 연속 재생 중' : phase === 'requesting' ? workStatus : phase === 'applying' ? '결과를 화면에 정리하고 있습니다.' : ''}</span>
         </div>
         <button className={`sound-preview${audio.active ? ' active' : ''}`} disabled={speech.active || voiceActive || pending(phase) || !ready || (view === 'analysis' && analysisBusy)} onClick={() => audio.active ? audio.stop() : void audio.play()}>
           <Icon name="sound" />{audio.active ? '미리보기 중지' : '코어 음량 반응 미리보기'}<small>로컬 합성음 · AI 음성 아님</small>
@@ -291,6 +417,12 @@ export default function App() {
       {!aiStatus && ready && <div className="ai-connection-error" role="status">AI 서버 연결을 확인하지 못했습니다. <button disabled={pending(phase)} onClick={() => { void refreshAI() }}>다시 확인</button></div>}
       {connection === 'error' && <div className="shell-error" role="alert"><p>{connectionError}</p><button onClick={() => setRetry(v => v + 1)}>서버 연결 다시 확인</button></div>}
     </div>
+    {ready && <div className="activation-status">
+      <span role="status">{activation.greeting ? 'NERVIS · 안내 음성 재생 중' : activation.armed && !baseLocked && !voiceActive && panel === null ? 'HEY NERVIS · 호출어 대기 (로컬 STT)' : 'Ctrl + Shift + Space · 마이크 켜기/끄기'}</span>
+      {activation.greeting && <button onClick={() => activation.stop()}>안내음 중지</button>}
+      <button disabled={baseLocked || voiceActive || activation.greeting} onClick={() => activation.armed ? activation.stop() : void activation.arm()}>{activation.armed ? '호출어 대기 끄기' : '호출어 대기 켜기'}</button>
+    </div>}
+    {activation.notice && <p className="activation-notice" role="status">{activation.notice}</p>}
     {(speech.error || audio.error) && <p className="audio-error" role="alert">{speech.error || audio.error}</p>}
   </div>
 }

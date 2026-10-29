@@ -16,6 +16,43 @@ from types import SimpleNamespace
 
 
 class TTSTests(unittest.TestCase):
+    def setUp(self):
+        from backend.speech_engine import VoiceStudioEngine
+        self.enterContext(patch('backend.tts.get_speech_engine', return_value=VoiceStudioEngine()))
+
+    def test_segment_request_must_preserve_full_text_and_total_limit(self):
+        self.assertEqual(SpeechRequest(text='첫 문장. 다음 문장.', segments=['첫 문장.', '다음 문장.']).segments,
+                         ['첫 문장.', '다음 문장.'])
+        for segments in (['다른 문장.'], [' '], ['가'] * 13):
+            with self.assertRaises(ValidationError):
+                SpeechRequest(text='첫 문장.', segments=segments)
+
+    def test_segment_relay_marks_boundaries_and_generates_next_before_playback_finishes(self):
+        async def run():
+            output, requests = [], []
+            generated = asyncio.Event()
+            class Browser:
+                async def send_json(self, value):
+                    output.append(value)
+                    if value['type'] == 'done': generated.set()
+                async def send_bytes(self, value): output.append(value)
+                async def receive_text(self):
+                    await generated.wait()
+                    return json.dumps({'type': 'playback.finished'})
+            class Studio:
+                async def send(self, value): requests.append(json.loads(value)['text'])
+                async def __aiter__(self):
+                    yield json.dumps({'type': 'start', 'sample_rate': 24000, 'channels': 1, 'format': 'pcm16'})
+                    yield b'\0\0'
+                    yield json.dumps({'type': 'done'})
+            await relay(Browser(), Studio(), SpeechRequest(text='첫 문장. 다음 문장.', segments=['첫 문장.', '다음 문장.']), 'synthetic')
+            self.assertEqual(requests, ['첫 문장.', '다음 문장.'])
+            self.assertEqual([x for x in output if isinstance(x, dict) and x['type'] == 'segment'],
+                             [{'type': 'segment', 'index': 0}, {'type': 'segment', 'index': 1}])
+            self.assertEqual(sum(isinstance(x, dict) and x['type'] == 'start' for x in output), 1)
+            self.assertEqual(output[-1], {'type': 'done'})
+        asyncio.run(run())
+
     def test_standby_refreshes_loaded_model_without_speech_generation(self):
         from backend.tts import warm_voice
         async def run():

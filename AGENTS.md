@@ -21,6 +21,36 @@
 
 ## 현재 작업 기준
 
+- 2026-10-29 고정 음성 형식: 실제 새 파일은 *_V2.mp3 세 개로 확인해 frontend/src/fixedCues.ts의 CUE_FILES에서 명시 선택했다. MP4/M4A도 브라우저 지원 코덱이면 파일명 매핑으로 재생 가능하며 WAV 변환을 요구하지 않는다. 시작 권한 준비도 같은 선택 파일을 사용하고 기존 WAV로 자동 대체하지 않는다. 원본 음성 파일 변환/삭제·테스트·빌드·실제 재생·커밋 없음.
+
+- 2026-10-29 ElevenLabs TTS 어댑터(미검증): docs/ELEVENLABS_TTS.md, backend/eleven_tts.py 기준. NERVIS_TTS_BACKEND=elevenlabs 선택 시 루트 .env/OS의 ELEVENLABS_API_KEY, ELEVENLABS_MODEL_ID(기본 eleven_v3), ELEVENLABS_VOICE_ID로 전체 응답 한 번을 고정 HTTPS endpoint에 전송하고 PCM24k로 기존 재생 경계를 유지한다. 기존 httpx를 사용하며 SDK 설치·실제 .env 변경·목소리 목록/모델/잔액 조회·생성/예열/자동 재시도·STT 전환은 없다. 고정 WAV/박수/호출어는 유지한다. 사용자 수동 확인을 위해 테스트·빌드·실계정 호출·서버 재시작·커밋은 실행하지 않았다.
+
+- 2026-10-29 도구 인자/Markdown 보완(미검증): get_daily_briefing/get_weather에 strict nullable date/location 계약과 ISO 날짜 지시를 적용했다. 실패 시 인자 값 없이 허용된 최상위 필드/검증 유형만 로그로 남긴다. 이전 실패 원문 인자는 없어 정확한 필드는 미확정이며 자동 재시도/쓰기는 없다. 프런트는 기존 Markdown 뷰어 앞에서 AI 답변의 이스케이프된 쌍별 굵게 표시만 복원하고 코드·사용자 원문·저장 DB는 유지한다. docs/TTS_STYLE_REVIEW.md에 Gemini3.8 Google 지원과 HAI 경로 지원 미확정을 구분했다. 실제 TTS/env 변경·유료 호출·테스트·빌드·커밋 없음.
+
+- 2026-10-29 고정 멘트 분리(미검증): 박수/시작 단축키 후 Welcome_Back_Sir.wav, HEY NERVIS 후 Yes_Sir.wav→질문 받아쓰기, 서버 request.started 후 요청당 한 번 Right_Away_Sir.wav를 재생한다. 결과/오류 TTS는 접수 멘트 종료 후 시작하며 파일 누락/재생 실패는 안내 후 계속 진행한다. frontend/src/fixedCues.ts와 docs/STARTUP_ACTIVATION.md 기준. Fish Audio Jarvis(MCU) 원본의 제출/외부 복제 권리는 확인되지 않았으며 docs/VOICE_CUE_RIGHTS.md에 공식 근거와 대안을 기록했다. 기존 WAV/프로필/환경 파일은 변경하지 않았다. 사용자 요청으로 테스트·빌드·브라우저·실계정 검증·커밋은 하지 않았다.
+
+- 2026-10-29 시작 활성화: `docs/STARTUP_ACTIVATION.md` 기준. 최초 시작 준비 클릭 후 로컬 박수 두 번으로 기존 인트로, 로컬 Turbo STT의 HEY NERVIS/한국어 발음 인식 후 `frontend/public/audio/cues/Welcome_Back_Sir.wav` 재생, 종료 후 기존 받아쓰기를 연다. 전용 호출어 모델이 아닌 STT 문자열 감지이며 박수는 짧은 충격음 휴리스틱이다. Ctrl+Shift+Space는 탭 내 시작/마이크 토글. 질문은 첫 음성 이후 1.5초 무음으로 녹음 종료하고 최종 인식을 기다리며 자동 전송하지 않는다. Right_Away_Sir.wav는 아직 미연결. 이후 응답은 기존 설정 TTS 유지. 숨김/종료 시 활성화 대기를 해제하며 실제 AI/응답 TTS의 기존 백그라운드 동작은 유지. 사용자 요청으로 테스트·빌드·실제 마이크 검증은 실행하지 않았다. 환경 파일·원본·DB 변경 및 유료 요청·커밋 없음.
+
+- 2026-10-29 SSE 시간 객체 오류·등록 전 계획 보완(미검증): 사용자 로그의 time not JSON serializable 원인을 수동 SSE 경계로 확인하고 FastAPI jsonable_encoder를 적용했다. 결과 직렬화 실패는 오류 이벤트로 전달하며 이미 저장됐을 수 있음을 알린다. 프런트 대기 180초/Gateway 읽기 60초, 자동 재시도 없음. 수업 '등록하기 전에 먼저 설명' 요청은 서버에서 저장 없이 계획만 반환한다. 기존 저장 수업은 임의 변경/재등록하지 않았다. docs/CONVERSATIONS.md 최신 절 기준. 테스트·빌드·실계정 호출·커밋은 이번에 하지 않았다.
+
+- 2026-10-29 날씨 최고·최저 보완(미검증): backend/weather.py가 최신 예보의 당일 TMN/TMX 누락 시 더 이른 발표를 최대 1회 추가 조회해 빈 값만 보완한다. 최신 시간별 예보/기존 값은 유지하고 실제 관측 극값이나 남은 시간별 최소·최대로 대체하지 않는다. 발표 시각/forecast 기준을 기록하고 카드·기본 음성 안내에 연결한다. 비캐시 당일 최대 3회이며 기존 캐시 유지. docs/WEATHER.md 최신 절 기준. 환경/TTS/원본 자료는 변경하지 않았고 실제 API·테스트·빌드·커밋은 하지 않았다.
+
+- 2026-10-28 말하기 표시·속도: SPEAKING 칩과 코어를 보라색으로 구분하고, 전체 PCM을 로컬 WAV로 포장해 HTMLAudioElement 1.15배속·preservesPitch=true로 재생하도록 변경했다. 출력 음량 분석·소유권·중지 정리는 유지한다. 목소리/키/날씨 요청은 변경하지 않는다. 사용자 수동 확인을 위해 테스트·빌드·실제 호출·커밋은 하지 않았다. docs/LOCAL_TTS.md 최신 절 기준.
+
+- 2026-10-28 TTS 목소리 변경: 사용자 요청으로 NERVIS_TTS_VOICE=Schedar를 실제 .env와 예시에 설정하고 코드 기본값도 Schedar로 변경했다. 목소리는 기존 env 설정 경로로 교체한다. HAI TTS 모델·STT·키·AI 활성/예산은 유지하며 일정은 재전송/수정하지 않았다. 실제 TTS/테스트·빌드·커밋은 하지 않았다.
+
+- 2026-10-28 HAI GPT TTS 전환(미검증): 사용자 요청으로 .env의 NERVIS_TTS_BACKEND=hai_gpt, NERVIS_TTS_MODEL=gemini-3.1-flash-tts-preview, NERVIS_TTS_VOICE=Umbriel만 설정했다. 기존 Gateway 키/AI 활성·예산/STT/VoiceStudio 프로필은 유지한다. backend/hai_tts.py가 허용된 응답 텍스트만 전송하며 목록·크레딧·예열 외부 조회/자동 재시도는 없다. 탭 숨김 시 요청·음성을 취소하지 않고 유지하며 실제 종료/새 대화/명시적 중지는 정리한다. 숨김으로 3D 준비가 지연되면 음성을 독립 시작하고 복귀 시 화면을 표시한다. 더미 응답도 TTS는 실제 유료 요청이므로 데이터 미리보기와 구분한다. docs/LOCAL_TTS.md 최신 절 우선. 사용자 요청으로 수정만 했고 테스트·빌드·실제 호출·브라우저 검증·서버 재시작·커밋은 하지 않았다.
+
+- 2026-10-28 설명 검증 실패 보완(미검증): backend/ai.py의 설명 요청에 strict JSON schema와 허용 근거 enum을 명시하고 실패 사유를 explanation_error에 분류한다. 원문은 로그에 남기지 않는다. 설명 실패 시 backend/response_text.py로 실제 조회 결과의 기본 안내를 생성해 로컬 TTS로 읽고 explanation_source=local_results로 표시한다. partial/warning은 유지하되 이 경우만 전체 ERROR 표시를 피한다. 실제 조회/화면 실패의 오류 처리는 유지한다. docs/LOCAL_TTS.md 설명 실패 절 기준. 사용자 요청으로 수정만 했으며 테스트·빌드·실계정 호출·커밋은 수행하지 않는다.
+
+- 2026-10-28 전체 응답 음성 후 재생(미검증): 사용자 선택으로 문장별 합성/즉시 재생 대신 전체 텍스트 한 번 요청→PCM 전체 수신→하나의 버퍼 연속 재생으로 변경했다. 분석은 기존 화면 뒤에서 준비하고 음성과 무대가 모두 ready일 때 전환/재생한다. 음성 중 3D·시계열 움직임을 허용하되 새 명령 잠금은 유지한다. 문장별 카드 강조 대신 재생 시작에 카드 전체를 표시한다. docs/LOCAL_TTS.md 최신 절 우선. HAI GPT 전환은 보류하며 테스트·빌드·실제 호출·브라우저 확인·커밋은 이번에 수행하지 않는다.
+
+- 2026-10-28 OpenJarvis 참고 후속 수정(미검증): `docs/LOCAL_TTS.md` 작업 이벤트 절 기준. 기존 실행/저장 함수를 공유하는 POST /api/ai/chat/stream, 실제 도구 경계 이벤트, 요청/세션 ID 기반 화면·TTS 소유권을 추가했다. backend/speech_engine.py로 VoiceStudio 어댑터를 분리하고 기존 예열·로컬 전용·잠금·응답별 화면 선택을 재사용한다. 연결 중단은 시작된 서버 트랜잭션의 취소/자동 재전송을 뜻하지 않는다. 사용자가 수정만 요청해 테스트·빌드·실제 호출·브라우저 검증·서버 재시작을 실행하지 않았으며 커밋도 하지 않는다. 문장 사이 무음 개선 버퍼는 이번 범위가 아니다.
+
+- 2026-10-28 동적 음성/화면 연결: `docs/LOCAL_TTS.md` 동적 응답 절과 `backend/presentation.py`, `frontend/src/presentation.ts`를 따른다. 기존 설명 요청의 선택적 segments(text/target)를 실제 결과 위치 키로 양쪽에서 검증하고, 로컬 PCM 예약 재생 시각으로 브리핑 카드/할 일 행을 연결한다. 잘못된 연결 정보는 일반 낭독으로 대체한다. 단어별 정렬/신규 화면 자동 등록은 미구현이며 모델의 연결 품질·실제 청취는 별도 확인한다. 실제 AI 호출·환경 파일 수정·커밋은 이번 구현 권한에 포함하지 않는다.
+
+- 2026-10-28 입력 UI 재합의: 닫힘은 중앙 T/마이크, 열림은 공통 입력창 오른쪽 마이크/보내기만 표시한다(T 숨김). 그룹 너비가 반응형으로 늘어나면서 버튼도 오른쪽으로 함께 이동한다. 고정 아이콘 왼쪽 팝업/아이콘 위 세로 입력창은 사용하지 않는다. T는 텍스트 열기, 마이크는 열기+캡처 시작/다시 누르면 중지, ×는 접기+초안 보존이다. 사용자 요청으로 이번 변경의 테스트·빌드·브라우저 검증은 하지 않았다. docs/LOCAL_TTS.md 최상단 절이 이전 배치 기준보다 우선한다.
+
 - 2026-10-28 입력창 방향/TTS 시작 준비: 입력 패널은 고정 T/마이크 아이콘 왼쪽으로 펼친다. 위로 쌓는 배치를 사용하지 않는다. 일반 `python -m backend` 앱은 TTS를 시작 시 준비하고 60초마다 무음 warmup으로 유휴 타이머를 갱신한다. STT/TTS 작업 중에는 유지 요청을 건너뛰고 서버 종료 시 작업을 취소한다. VoiceStudio 미실행/실패는 경고 후 다른 API를 유지한다. 테스트용 create_app은 기본 preload_speech=False다. 실제 로그의 냉간 로드 약20초와 첫 문장 생성 약4초를 구분한다. 상세 기준은 docs/LOCAL_TTS.md 최신 절이다.
 
 - 2026-10-28 입력 UI 단순화/TTS 유휴 복구: 홈·분석 모두 초기 T/마이크 아이콘만 표시하고 T로 입력창 열기/닫기, 마이크로 직접 캡처 켜기/끄기를 처리한다. 별도 마이크 켜기 줄은 제거했다. VoiceStudio idle loaded=false와 유휴 해제 로그를 확인해, TTS가 설치/활성 OmniVoice를 확인한 뒤 필요 시 warmup/로드 대기하도록 수정했다. 다운로드·환경/프로필 변경은 없다. 실행 서버는 사용자가 직접 관리하므로 임의 재시작하지 않았다. 기준은 `docs/LOCAL_TTS.md`의 최신 절이다.

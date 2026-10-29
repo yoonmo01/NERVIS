@@ -36,6 +36,25 @@ def number(value, low, high):
         return None
 
 
+def daily_temperatures(items, day):
+    values = {'low_c': None, 'high_c': None}
+    for row in items or []:
+        if row.get('fcstDate') != day.strftime('%Y%m%d') or row.get('category') not in ('TMN', 'TMX'):
+            continue
+        time = row.get('fcstTime')
+        if not isinstance(time, str) or not re.fullmatch(r'(?:[01][0-9]|2[0-3])[0-5][0-9]', time):
+            continue
+        value = number(row.get('fcstValue'), -100, 70)
+        if value is not None:
+            values['low_c' if row['category'] == 'TMN' else 'high_c'] = value
+    return values
+
+
+def daily_release(day, latest):
+    early = datetime.combine(day, datetime.min.time(), tzinfo=KST).replace(hour=2)
+    return early if early <= latest else early - timedelta(hours=3)
+
+
 class WeatherService:
     def __init__(self, api_key, *, client=None, clock=None, default_location='춘천'):
         self._key = unquote(api_key.strip()) if re.search(r'%[0-9A-Fa-f]{2}',api_key) else api_key.strip()
@@ -87,7 +106,8 @@ class WeatherService:
         day = day or now.date()
         result = {'status':'unavailable', 'location':place, 'date':day.isoformat(),
                   'source':'기상청 단기예보', 'fetched_at':None, 'cached':False,
-                  'current':None, 'hourly':[], 'daily':{'low_c':None,'high_c':None}, 'errors':[],
+                  'current':None, 'hourly':[], 'daily':{'low_c':None,'high_c':None, 'basis':'forecast',
+                      'low_issued_at':None,'high_issued_at':None}, 'errors':[],
                   'supported_locations':list(LOCATIONS)}
         if place not in LOCATIONS:
             return {**result,'status':'unknown_location','errors':['location_not_supported']}
@@ -120,6 +140,24 @@ class WeatherService:
                     else:
                         result['errors'].append('observation_unavailable')
                 items, error = (None,'key_rejected') if key_rejected else self._items(client,'getVilageFcst',forecast,LOCATIONS[place])
+                daily = daily_temperatures(items, day)
+                for name, value in daily.items():
+                    if value is not None:
+                        result['daily'][name] = value
+                        result['daily']['low_issued_at' if name == 'low_c' else 'high_issued_at'] = forecast.isoformat()
+                # Latest releases can omit extrema whose forecast time has already passed.
+                # Only fill missing fields, with one older release; never retry a failed request.
+                earlier = daily_release(day, forecast)
+                if items is not None and error is None and day == now.date() and earlier < forecast and any(v is None for v in daily.values()):
+                    older_items, older_error = self._items(client, 'getVilageFcst', earlier, LOCATIONS[place])
+                    older = daily_temperatures(older_items, day)
+                    for name, value in older.items():
+                        if result['daily'][name] is None and value is not None:
+                            result['daily'][name] = value
+                            result['daily']['low_issued_at' if name == 'low_c' else 'high_issued_at'] = earlier.isoformat()
+                    key_rejected = key_rejected or older_error == 'key_rejected'
+                if items is not None and any(result['daily'][name] is None for name in ('low_c', 'high_c')):
+                    result['errors'].append('daily_temperature_unavailable')
                 hours = {}
                 for row in items or []:
                     if row.get('fcstDate') != day.strftime('%Y%m%d'):
@@ -129,8 +167,6 @@ class WeatherService:
                     except (ValueError,KeyError,TypeError):
                         continue
                     category, value = row.get('category'), row.get('fcstValue')
-                    if category in ('TMN','TMX'):
-                        result['daily']['low_c' if category=='TMN' else 'high_c'] = number(value,-100,70)
                     if category not in ('TMP','POP','SKY'):
                         continue
                     if day == now.date() and at < now.replace(minute=0,second=0,microsecond=0):
@@ -146,7 +182,7 @@ class WeatherService:
                     result['errors'].append('weather_key_rejected')
             finally:
                 if owned: client.close()
-            available = result['current'] is not None or bool(result['hourly'])
+            available = result['current'] is not None or bool(result['hourly']) or any(result['daily'][name] is not None for name in ('low_c', 'high_c'))
             result['status'] = ('partial' if result['errors'] else 'ok') if available else 'unavailable'
             result['fetched_at'] = now.isoformat()
             ttl = 600 if result['status']=='ok' else 60

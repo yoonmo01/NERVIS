@@ -20,10 +20,47 @@ def handler(request):
             {'category': 'PTY', 'obsrValue': '0'}, {'category': 'REH', 'obsrValue': '62'}]))
     return httpx.Response(200, json=payload([
         {'category': k, 'fcstDate': '20261023', 'fcstTime': '2000', 'fcstValue': v}
-        for k,v in [('TMP','13'),('SKY','1'),('POP','0')]]))
+        for k,v in [('TMP','13'),('SKY','1'),('POP','0'),('TMN','5'),('TMX','21')]]))
 
 
 class WeatherTests(unittest.TestCase):
+    def test_missing_extrema_are_filled_once_without_replacing_latest_forecast(self):
+        def earlier(request):
+            if request.url.path.endswith('getUltraSrtNcst'):
+                return handler(request)
+            if request.url.params['base_time'] == '0200':
+                return httpx.Response(200, json=payload([
+                    {'category': category, 'fcstDate': '20261023', 'fcstTime': time, 'fcstValue': value}
+                    for category, time, value in [('TMN', '0600', '3'), ('TMX', '1500', '25'), ('TMP', '2000', '1')]]))
+            value = handler(request).json()
+            value['response']['body']['items']['item'] = [r for r in value['response']['body']['items']['item'] if r['category'] != 'TMN']
+            return httpx.Response(200, json=value)
+        service = self.service(earlier)
+        result = service.get('춘천')
+        self.assertEqual(result['daily']['low_c'], 3)
+        self.assertEqual(result['daily']['high_c'], 21)
+        self.assertEqual(result['daily']['basis'], 'forecast')
+        self.assertEqual(result['daily']['low_issued_at'], '2026-10-23T02:00:00+09:00')
+        self.assertEqual(result['daily']['high_issued_at'], '2026-10-23T17:00:00+09:00')
+        self.assertEqual(result['hourly'][0]['temperature_c'], 13)
+        self.assertEqual(len(self.calls), 3)
+        self.assertTrue(service.get('춘천')['cached'])
+        self.assertEqual(len(self.calls), 3)
+
+    def test_missing_extrema_stay_unknown_and_do_not_use_hourly_minmax(self):
+        def missing(request):
+            value = handler(request).json()
+            if request.url.path.endswith('getVilageFcst'):
+                value['response']['body']['items']['item'] = [r for r in value['response']['body']['items']['item'] if r['category'] not in ('TMN', 'TMX')]
+            return httpx.Response(200, json=value)
+        service = self.service(missing)
+        result = service.get('춘천')
+        self.assertIsNone(result['daily']['low_c'])
+        self.assertIsNone(result['daily']['high_c'])
+        self.assertEqual(result['status'], 'partial')
+        self.assertIn('daily_temperature_unavailable', result['errors'])
+        self.assertEqual(len(self.calls), 3)
+
     def service(self, fn=handler, key='synthetic-key'):
         from backend.weather import WeatherService
         self.calls=[]

@@ -23,9 +23,10 @@ function RegionCard({ data, column, sample, expanded = false }: { data: StageDat
   </div>
 }
 
-export default function AnalysisView({ regions, version, active, blocked, reduced, onBusyChange, request, onApplied, onContext, response, calculations, tab, onTab }: {
+export default function AnalysisView({ regions, version, active, presenting = active, blocked, reduced, onBusyChange, request, onApplied, onContext, response, calculations, tab, onTab }: {
   regions: Region[]; version: string; active: boolean; blocked: boolean; reduced: boolean; onBusyChange: (value: boolean) => void; request: ViewRequest | null; onApplied: (id: number, error?: string) => void; onContext: (value: ViewContext) => void;
   response: ReactNode; calculations: ReactNode; tab: 'mri' | 'response' | 'calculations'; onTab: (tab: 'mri' | 'response' | 'calculations') => void;
+  presenting?: boolean;
 }) {
   const [selection, setSelection] = useState<StageSelection | null>(() => request?.selection ?? null)
   const [data, setData] = useState<StageData | null>(null)
@@ -73,21 +74,27 @@ export default function AnalysisView({ regions, version, active, blocked, reduce
   const baseStart = data?.comparison.samples[0] ?? 1, baseEnd = data?.comparison.samples.at(-1) ?? 200
   const start = selectedWindow?.start_sample ?? baseStart, end = selectedWindow?.end_sample ?? baseEnd
   useEffect(() => {
-    if (data) onContext({ selected_region_ids: data.comparison.regions.map(r => r.label_id), start, end })
-  }, [data, start, end, onContext])
+    if (data && presenting) onContext({ selected_region_ids: data.comparison.regions.map(r => r.label_id), start, end })
+  }, [data, start, end, onContext, presenting])
   const sampleIndex = cursor - baseStart
   const plotX = (sample: number) => (sample - baseStart) / Math.max(1, baseEnd - baseStart) * 1000
-  useEffect(() => { if (!active || blocked) setPlaying(false) }, [active, blocked])
+  useEffect(() => { if (!active || blocked || !presenting) setPlaying(false) }, [active, blocked, presenting])
+  useEffect(() => {
+    if (presenting && data) setCursor(data.comparison.samples[0])
+  }, [presenting, data])
+  useEffect(() => {
+    if (presenting && data && visible && autoPlay.current) setPlaying(true)
+  }, [presenting, data, visible])
   useEffect(() => {
     const pause = () => { setVisible(!document.hidden); if (document.hidden) setPlaying(false) }
     document.addEventListener('visibilitychange', pause)
     return () => document.removeEventListener('visibilitychange', pause)
   }, [])
   useEffect(() => {
-    if (!playing || !data || !active || blocked || !visible) return
+    if (!playing || !data || !active || !presenting || blocked || !visible) return
     const timer = setInterval(() => setCursor(value => advanceSample(value, start, end)), 100)
     return () => clearInterval(timer)
-  }, [playing, data, active, blocked, visible, start, end])
+  }, [playing, data, active, presenting, blocked, visible, start, end])
   useEffect(() => {
     if (detail !== null && dialog.current && !dialog.current.open) dialog.current.showModal()
     else if (detail === null && dialog.current?.open) dialog.current.close()

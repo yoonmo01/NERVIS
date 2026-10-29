@@ -9,7 +9,7 @@ export function useDictation(enabled: boolean, onFinal: (text: string) => void) 
   final.current = onFinal
   const session = useRef<Dictation | null>(null)
   useEffect(() => {
-    const current = new Dictation(setState, text => final.current(text))
+    const current = new Dictation(setState, text => final.current(text), 1500)
     session.current = current
     const end = () => current.cancel()
     const hide = () => { if (document.hidden) end() }

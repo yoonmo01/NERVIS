@@ -1,4 +1,5 @@
 import ReactMarkdown from 'react-markdown'
+import { answerMarkdown } from './answerMarkdown.ts'
 import type { ConversationListItem, ConversationMessage } from './useConversation.ts'
 
 export default function ConversationHistory({ title, messages, sessions, sessionId, hasMore, loading, listError, locked, onSelect, onMore, onRefresh, onClose }: {
@@ -24,7 +25,7 @@ export default function ConversationHistory({ title, messages, sessions, session
       {!messages.length && <p>아직 저장된 대화가 없습니다.</p>}
       {messages.map(message => <article key={message.id} className={`history-message role-${message.role}`}>
         <span>{message.role === 'user' ? 'YOU' : 'NERVIS'} · {new Date(message.created_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</span>
-        <ReactMarkdown>{message.content}</ReactMarkdown>
+        <ReactMarkdown>{message.role === 'assistant' ? answerMarkdown(message.content) : message.content}</ReactMarkdown>
         {message.status !== 'complete' && <small>{message.status === 'running' ? '응답 확인 전 · 자동 재전송하지 않습니다.' : '처리 실패 · 자동 재전송하지 않습니다.'}</small>}
       </article>)}
       </div>

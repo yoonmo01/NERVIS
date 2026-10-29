@@ -97,13 +97,13 @@ GPT 계열은 `POST /responses/`를 우선 검증한다. 일반 채팅 모델은
 
 ## 7. Gemini TTS 응답 음성
 
-`POST /audio/speech/`를 사용한다. 문서에 안내된 `gemini-3.8-flash-tts` 등을 계정 목록·짧은 한국어 시험으로 확인하고 실제 ID를 고정한다.
+`POST /audio/speech/`를 사용한다. 2026-10-28 사용자 선택으로 `gemini-3.1-flash-tts-preview` 모델과 `Umbriel` 목소리를 설정했다. 현재 계정 권한·실제 생성·속도는 미검증이며 개발용 유료 목록 조회나 생성 요청은 실행하지 않았다. 최신 연결/탭 동작은 `LOCAL_TTS.md`를 따른다.
 
 | 항목 | 사용할 방식 |
 |---|---|
 | `input` | 실제 응답 문장. 말투 지시를 섞어 읽게 하지 않음 |
 | `voice` | 허용된 목소리 중 한국어·분위기를 듣고 선택 |
-| `instructions` | 모델이 지원할 때 톤·속도·말투 지시 |
+| 말투 지시 | 현재 HAI 공개 TTS 문서에는 별도 `instructions` 필드가 명시되지 않았다. Google 직접 API의 style 기능과 Gateway 지원을 구분하고 임의 필드를 전송하지 않는다. |
 | 응답 형식 | 공식 문서상 PCM16 LE, 24kHz, 모노. MP3 바이트로 가정하지 않음 |
 
 로컬에서 PCM에 WAV 헤더를 붙이거나 Web Audio로 재생하고, 편집 단계에서 필요한 샘플레이트로 변환한다. 짧은 실제 답변을 합성하며 사전 녹음 답변을 실시간 응답처럼 사용하지 않는다. 수치가 포함된 문장의 외부 전송 범위가 미확정이면 해당 부분은 로컬 TTS를 쓴다. [TTS 문서](https://docs.mindlogic.ai/docs/hallym-ac/api-gateway/reference/audio-tts)
