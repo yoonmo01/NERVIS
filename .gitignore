@@ -6,12 +6,7 @@
 /reports
 /data/processed/
 
-# Supplied reference PDF: redistribution terms have not been confirmed.
-/docs/AI Brain Art Challenge - 안소라.pdf
 
-# Local data documentation: excluded at the user's request.
-/docs/DATA_*.md
-/docs/past/NERVIS_DATA_FEASIBILITY.md
 
 # Local credentials and Python-generated files.
 .env
